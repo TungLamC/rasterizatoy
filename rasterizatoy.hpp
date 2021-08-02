@@ -1,7 +1,7 @@
 #ifndef RASTERIZATOY_HPP
 #define RASTERIZATOY_HPP
 
-#include <tuple>
+#include "cimg.h"
 #include <cassert>
 #include <utility>
 #include <initializer_list>
@@ -15,12 +15,15 @@ template<typename T> using Vector2 = Vector<2, T>;
 template<typename T> using Vector3 = Vector<3, T>;
 template<typename T> using Vector4 = Vector<4, T>;
 template<typename T> using Matrix4 = Matrix<4, 4, T>;
+
+using ColorRGB = Vector3<uint8_t>;
+
+using namespace cimg_library;
 }
 
+//-------------------------------------------------------- math --------------------------------------------------------
 namespace rasterizatoy
 {
-//-------------------------------------------------------- math --------------------------------------------------------
-
 namespace derived
 {
 template<size_t N, typename T> struct VectorN { T components[N]; };
@@ -333,6 +336,61 @@ inline std::ostream& operator<<(std::ostream& stream, const Matrix<ROW, COLUMN, 
   for (size_t row = 0; row < ROW; row++) stream << matrix[row] << std::endl;
   return stream;
 }
+}
+
+//------------------------------------------------------- render -------------------------------------------------------
+namespace rasterizatoy
+{
+class Window
+{
+public:
+  inline Window(size_t width, size_t height, const char* title = "rasterizatoy")
+    : bitmap_(width, height, 1, 3, 0), display_(bitmap_, title) { }
+
+  void swap_buffer() { bitmap_.display(display_); }
+
+  inline void close() { display_.close(); }
+  inline size_t width() const { return display_.width(); }
+  inline size_t height() const { return display_.height(); }
+  inline bool should_close() const { return display_.is_closed(); }
+
+  inline void clear(const ColorRGB& color) { cimg_forXY(bitmap_, x, y) { put_pixel(x, y, color); } }
+
+  inline void put_pixel(size_t x, size_t y, const ColorRGB& color)
+  {
+    y = height() - y - 1;
+    bitmap_(x, y, 0) = color.r;
+    bitmap_(x, y, 1) = color.g;
+    bitmap_(x, y, 2) = color.b;
+  }
+
+  void draw_line(size_t x1, size_t y1, size_t x2, size_t y2, const ColorRGB& color)
+  {
+    if (x1 == x2 && y1 == y2) { put_pixel(x1, y1, color); return; }
+    if (x1 == x2) { for (size_t y = y1; y != y2; y += (y1 <= y2 ? 1 : -1)) put_pixel(x1, y, color); return; }
+    if (y1 == y2) { for (size_t x = x1; x != x2; x += (x1 <= x2 ? 1 : -1)) put_pixel(x, y1, color); return; }
+
+    size_t x, y;
+    size_t rem = 0;
+    size_t dx = x1 < x2 ? x2 - x1 : x1 - x2;
+    size_t dy = y1 < y2 ? y2 - y1 : y1 - y2;
+    if (x2 < x1) std::swap(x1, x2); if (y2 < y1) std::swap(y1, y2);
+    for (x = x1, y = y1; x <= x2; x++)
+    {
+      put_pixel(x, y, color);
+      rem += (dx >= dy ? dy : dx);
+      if (rem >= (dx >= dy ? dx : dy))
+      {
+        rem -= (dx >= dy ? dx : dy);
+        put_pixel(x, ++y, color);
+      }
+    }
+  }
+
+private:
+  CImg<uint8_t> bitmap_;
+  CImgDisplay   display_;
+};
 }
 
 #endif //RASTERIZATOY_HPP
