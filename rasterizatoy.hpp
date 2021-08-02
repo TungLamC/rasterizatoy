@@ -21,10 +21,10 @@ namespace rasterizatoy
 
 namespace derived
 {
-template<typename T> struct VectorN { T data[2]; };
-template<typename T> struct Vector2 { union { struct { T x, y; }; struct { T u, v; }; T data[2]; }; };
-template<typename T> struct Vector3 { union { struct { T x, y, z; }; struct { T r, g, b; }; T data[3]; }; };
-template<typename T> struct Vector4 { union { struct { T x, y, z, w; }; struct { T r, g, b, a; }; T data[4]; }; };
+template<typename T> struct VectorN { T component[2]; };
+template<typename T> struct Vector2 { union { struct { T x, y; }; struct { T u, v; }; T component[2]; }; };
+template<typename T> struct Vector3 { union { struct { T x, y, z; }; struct { T r, g, b; }; T component[3]; }; };
+template<typename T> struct Vector4 { union { struct { T x, y, z, w; }; struct { T r, g, b, a; }; T component[4]; }; };
 }
 
 template<size_t N, typename T>
@@ -35,20 +35,20 @@ class Vector: public
   derived::VectorN<T>>>>
 {
 public:
-  inline Vector() { for (size_t i = 0; i < N; i++) data_[i] = T{}; }
-  inline Vector(const T* pointer) { for (size_t i = 0; i < N; i++) data_[i] = pointer[i]; }
-  inline Vector(const Vector<N, T>& other) { for (size_t i = 0; i < N; i++) data_[i] = other.data_[i]; }
-  inline Vector(const std::initializer_list<T>& initializer) { for (size_t i = 0; i < N; i++) data_[i] = *(initializer.begin() + i); }
+  inline Vector() { for (size_t i = 0; i < N; i++) component_[i] = T{}; }
+  inline Vector(const T* pointer) { for (size_t i = 0; i < N; i++) component_[i] = pointer[i]; }
+  inline Vector(const Vector<N, T>& other) { for (size_t i = 0; i < N; i++) component_[i] = other.component_[i]; }
+  inline Vector(const std::initializer_list<T>& initializer) { for (size_t i = 0; i < N; i++) component_[i] = *(initializer.begin() + i); }
 
-  inline T& operator[](size_t index) { assert(index < N); return data_[index]; }
-  inline const T& operator[](size_t index) const { assert(index < N); return data_[index]; }
+  inline T& operator[](size_t index) { assert(index < N); return component_[index]; }
+  inline const T& operator[](size_t index) const { assert(index < N); return component_[index]; }
 
   inline Vector<N, T> normalize() { return *this / length(); }
   inline Vector<N, T> normalize(std::in_place_t) { return *this /= length(); }
-  inline T length(bool square = false) const { T result = 0; for (size_t i = 0; i < N; i++) result += data_[i] * data_[i]; return result; }
+  inline T length(bool square = false) const { T result = 0; for (size_t i = 0; i < N; i++) result += component_[i] * component_[i]; return result; }
 
 private:
-  T (&data_)[N] = this->data;
+  T (&component_)[N] = this->component;
 };
 
 template<size_t N, typename T>
