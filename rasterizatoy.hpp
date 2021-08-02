@@ -21,7 +21,7 @@ namespace rasterizatoy
 
 namespace derived
 {
-template<typename T> struct VectorN { T component[2]; };
+template<size_t N, typename T> struct VectorN { T component[N]; };
 template<typename T> struct Vector2 { union { struct { T x, y; }; struct { T u, v; }; T component[2]; }; };
 template<typename T> struct Vector3 { union { struct { T x, y, z; }; struct { T r, g, b; }; T component[3]; }; };
 template<typename T> struct Vector4 { union { struct { T x, y, z, w; }; struct { T r, g, b, a; }; T component[4]; }; };
@@ -32,7 +32,7 @@ class Vector: public
   std::conditional_t<N == 2, derived::Vector2<T>,
   std::conditional_t<N == 3, derived::Vector3<T>,
   std::conditional_t<N == 4, derived::Vector4<T>,
-  derived::VectorN<T>>>>
+  derived::VectorN<N, T>>>>
 {
 public:
   inline Vector() { for (size_t i = 0; i < N; i++) component_[i] = T{}; }
