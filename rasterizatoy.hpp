@@ -394,7 +394,7 @@ public:
     size_t x, y;
     size_t dx = (x1 < x2)? x2 - x1 : x1 - x2;
     size_t dy = (y1 < y2)? y2 - y1 : y1 - y2;
-    int rem = 0;
+    size_t rem = 0;
     if (dx >= dy)
     {
       if (x2 < x1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
