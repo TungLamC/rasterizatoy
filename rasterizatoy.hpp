@@ -178,6 +178,120 @@ inline Vector<N, T>& operator/=(const Vector<N, T>& vector, T scalar)
   for (size_t i = 0; i < N; i++) vector[i] = vector[i] / scalar;
   return vector;
 }
+
+template<size_t N, typename T>
+inline T dot(const Vector<N, T>& lhs, const Vector<N, T>& rhs)
+{
+  T result = 0;
+  for (size_t i = 0; i < N; i++) result += lhs[i] * rhs[i];
+  return result;
+}
+
+template<size_t N, typename T>
+inline std::conditional_t<N == 2, T, Vector<N, T>> cross(const Vector<N, T>& lhs, const Vector<N, T>& rhs) 
+{
+  static_assert(N == 2 | N == 3 || N == 4);
+  if constexpr (N == 2)
+    return lhs.x * rhs.y - lhs.y * rhs.x;
+  if constexpr (N == 3)
+    return {lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z, lhs.x * rhs.y - lhs.y * rhs.x};
+  if constexpr (N == 4)
+    return {lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z, lhs.x * rhs.y - lhs.y * rhs.x, lhs.w};
+}
+
+template<size_t ROW, size_t COLUMN, typename T>
+class Matrix
+{
+public:
+  inline Matrix() = default;
+
+  inline Matrix(const std::initializer_list<Vector<COLUMN, T>>& initializer)
+  {
+    for (size_t row = 0; row < ROW; row++)
+      this->operator[](row) = *(initializer.begin() + row);
+  }
+
+public:
+  inline Vector<COLUMN, T>& operator[](size_t row) { assert(row < ROW); return value[row]; }
+  inline const Vector<COLUMN, T>& operator[](size_t row) const { assert(row < ROW); return value[row]; }
+
+  inline Vector<ROW, T> column_at(size_t column) const
+  {
+    Vector<ROW, T> result;
+    for (size_t row = 0; row < ROW; row++)
+      result[row] = value[row][column];
+    return result;
+  }
+
+private:
+  Vector<ROW, Vector<COLUMN, T>> value;
+};
+
+template<size_t ROW, size_t COLUMN, typename T>
+inline bool operator==(const Matrix<ROW, COLUMN, T>& lhs, const Matrix<ROW, COLUMN, T>& rhs)
+{
+  for (size_t row = 0; row < ROW; row++)
+    for (size_t column = 0; column < COLUMN; column++)
+      if (lhs.matrix_[row][column] != rhs.matrix_[row][column]) return false;
+      return true;
+}
+
+template<size_t ROW, size_t COLUMN, typename T>
+inline bool operator!=(const Matrix<ROW, COLUMN, T>& lhs, const Matrix<ROW, COLUMN, T>& rhs)
+{
+  return !(lhs == rhs);
+}
+
+template<size_t ROW, size_t COLUMN, typename T>
+inline Matrix<ROW, COLUMN, T> operator+(const Matrix<ROW, COLUMN, T>& matrix)
+{
+  return matrix;
+}
+
+template<size_t ROW, size_t COLUMN, typename T>
+inline Matrix<ROW, COLUMN, T> operator-(const Matrix<ROW, COLUMN, T>& matrix)
+{
+  Matrix<ROW, COLUMN, T> result;
+  for (size_t row = 0; row < ROW; row++)
+    for (size_t column = 0; column < COLUMN; column++)
+      result[row][column] = -matrix[row][column];
+  return result;
+}
+
+template<size_t ROW, size_t COLUMN, typename T>
+inline Matrix<ROW, COLUMN, T> operator+(const Matrix<ROW, COLUMN, T>& lhs, const Matrix<ROW, COLUMN, T>& rhs)
+{
+  Matrix<ROW, COLUMN, T> result;
+  for (size_t row = 0; row < ROW; row++)
+    for (size_t column = 0; column < COLUMN; column++)
+      result[row][column] = lhs[row][column] + rhs[row][column];
+  return result;
+}
+
+template<size_t ROW, size_t COLUMN, typename T>
+inline Matrix<ROW, COLUMN, T> operator-(const Matrix<ROW, COLUMN, T>& lhs, const Matrix<ROW, COLUMN, T>& rhs)
+{
+  return lhs + (-rhs);
+}
+
+template<size_t ROW, size_t COLUMN, typename T>
+inline Vector<ROW, T> operator*(const Matrix<ROW, COLUMN, T>& lhs, const Vector<COLUMN, T>& rhs)
+{
+  Vector<ROW, T> result;
+  for (size_t i = 0; i < ROW; i++)
+    result[i] = dot(lhs[i], rhs);
+  return result;
+}
+
+template<size_t ROW, size_t LHS_COLUMN, size_t RHS_COLUMN, typename T>
+inline Matrix<ROW, RHS_COLUMN, T> operator*(const Matrix<ROW, LHS_COLUMN, T>& lhs, const Matrix<LHS_COLUMN, RHS_COLUMN, T>& rhs)
+{
+  Matrix<ROW, RHS_COLUMN, T> result;
+  for (size_t row = 0; row < ROW; row++)
+    for (size_t column = 0; column < RHS_COLUMN; column++)
+      result[row][column] = dot(lhs[row], rhs.column_at(column));
+    return result;
+}
 }
 
 #endif //RASTERIZATOY_HPP
