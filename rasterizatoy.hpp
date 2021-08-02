@@ -398,7 +398,7 @@ private:
 class rasterizater
 {
 public:
-  inline static void clear(const ColorRGB& color) { }
+  inline static void clear(const ColorRGB& color) { window_->clear(color); }
   inline static void set_current_context(Window* window) { window_ = window; color_buffer_ = &window->bitmap_; }
   inline static void swap_buffer() { if (!window_) return; window_->swap_buffer(); }
 
