@@ -15,9 +15,7 @@ int main()
   while (!window.should_close())
   {
     rasterizater::clear({0, 0, 0});
-    std::cout << "------------------------" << std::endl;
     rasterizater::draw_call();
-    std::cout << "++++++++++++++++++++++++" << std::endl;
     rasterizater::swap_buffer();
   }
   return 0;

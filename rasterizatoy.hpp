@@ -399,7 +399,6 @@ public:
 
   void draw_line(size_t x1, size_t y1, size_t x2, size_t y2, const ColorRGB& color)
   {
-    std::cout << x1 << "," << y1 << " " << x2 << "," << y2 << std::endl;
     if (x1 == x2 && y1 == y2) { put_pixel(x1, y1, color); return; }
     if (x1 == x2) { for (size_t y = y1; y != y2; y += (y1 <= y2 ? 1 : -1)) put_pixel(x1, y, color); return; }
     if (y1 == y2) { for (size_t x = x1; x != x2; x += (x1 <= x2 ? 1 : -1)) put_pixel(x, y1, color); return; }
