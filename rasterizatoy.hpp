@@ -9,10 +9,12 @@
 namespace rasterizatoy
 {
 template<size_t N, typename T> class Vector;
+template<size_t ROW, size_t COLUMN, typename T> class Matrix;
 
 template<typename T> using Vector2 = Vector<2, T>;
 template<typename T> using Vector3 = Vector<3, T>;
 template<typename T> using Vector4 = Vector<4, T>;
+template<typename T> using Matrix4 = Matrix<4, 4, T>;
 }
 
 namespace rasterizatoy
@@ -297,6 +299,32 @@ inline Matrix<ROW, RHS_COLUMN, T> operator*(const Matrix<ROW, LHS_COLUMN, T>& lh
     for (size_t column = 0; column < RHS_COLUMN; column++)
       result[row][column] = dot(lhs[row], rhs.column_at(column));
     return result;
+}
+
+template<typename T>
+inline Matrix4<T> look_at(const Vector3<T>& eye, const Vector3<T>& center, const Vector3<T>& world_up)
+{
+  Vector3<T> z_axis = (eye - center).normalize(std::in_place);
+  Vector3<T> x_axis = cross(world_up, z_axis).normalize(std::in_place);
+  Vector3<T> y_axis = cross(z_axis, x_axis).normalize(std::in_place);
+  return {
+    {x_axis.x, x_axis.y, x_axis.z, -dot(x_axis, eye)},
+    {y_axis.x, y_axis.y, y_axis.z, -dot(y_axis, eye)},
+    {z_axis.x, z_axis.y, z_axis.z, -dot(z_axis, eye)},
+    {       0,        0,        0,                 1}
+  };
+}
+
+template<typename T>
+inline Matrix4<T> perspective(T fovy, T aspect, T z_near, T z_far)
+{
+  fovy = fovy * static_cast<T>(0.01745329251994329576923690768489);
+  return {
+    {1 / (aspect * std::tan(fovy / 2)) , 0, 0, 0},
+    {0, 1 / (std::tan(fovy / 2)), 0, 0},
+    {0, 0, -(z_far + z_near) / (z_far - z_near), -(2 * z_far * z_near) / (z_far - z_near)},
+    {0, 0, -1, 0}
+  };
 }
 
 template<size_t ROW, size_t COLUMN, typename T>
