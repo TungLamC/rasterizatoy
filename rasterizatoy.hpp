@@ -5,6 +5,7 @@
 #include <vector>
 #include <cassert>
 #include <utility>
+#include <iostream>
 #include <initializer_list>
 
 namespace rasterizatoy
@@ -22,6 +23,7 @@ template<typename T> using Vector4 = Vector<4, T>;
 template<typename T> using Matrix4 = Matrix<4, 4, T>;
 
 using ColorRGB    = Vector3<uint8_t>;
+using ColorRGBA   = Vector4<uint8_t>;
 using ColorBuffer = CImg<uint8_t>*;
 }
 
@@ -54,6 +56,7 @@ public:
 
   inline Vector<N, T> normalize() { return *this / length(); }
   inline Vector<N, T> normalize(std::in_place_t) { return *this /= length(); }
+  // fixme: square
   inline T length(bool square = false) const { T result = 0; for (size_t i = 0; i < N; i++) result += this->components[i] * this->components[i]; return result; }
 };
 
@@ -347,13 +350,22 @@ namespace rasterizatoy
 {
 struct Vertex
 {
-  Vertex(Vector4<real_t> position = {0, 0, 0, 0}): position(position) { }
+  inline Vertex(const Vector3<real_t>& position, const ColorRGBA& color)
+    : rhw{1}, position{position.x, position.y, position.z, 1}, color{color}, viewport{0, 0} { }
+
   real_t rhw;
+  ColorRGBA color;
   Vector4<real_t> position;
   Vector2<size_t> viewport;
 };
 
-struct Primitive { Vertex vertices[3]; };
+struct Primitive 
+{
+  inline Primitive(const Vertex& vertex0, const Vertex& vertex1, const Vertex& vertex2)
+    : vertices{vertex0, vertex1, vertex2} { }
+
+  Vertex vertices[3];
+};
 
 struct Shader
 {
@@ -387,6 +399,7 @@ public:
 
   void draw_line(size_t x1, size_t y1, size_t x2, size_t y2, const ColorRGB& color)
   {
+    std::cout << x1 << "," << y1 << " " << x2 << "," << y2 << std::endl;
     if (x1 == x2 && y1 == y2) { put_pixel(x1, y1, color); return; }
     if (x1 == x2) { for (size_t y = y1; y != y2; y += (y1 <= y2 ? 1 : -1)) put_pixel(x1, y, color); return; }
     if (y1 == y2) { for (size_t x = x1; x != x2; x += (x1 <= x2 ? 1 : -1)) put_pixel(x, y1, color); return; }
@@ -430,10 +443,8 @@ public:
   inline static void clear(const ColorRGB& color) { window_->clear(color); }
   inline static void set_current_context(Window* window) { window_ = window; color_buffer_ = &window->bitmap_; }
   inline static void swap_buffer() { if (!window_) return; window_->swap_buffer(); }
-
-  inline static void input_primitives(const std::vector<Primitive>& primitives) { primitives_ = primitives; }
-
   inline static void set_shader(Shader* shader) { shader_ = shader; }
+  inline static void input_primitives(const std::vector<Primitive>& primitives) { primitives_ = primitives; }
 
   inline static void draw_call()
   {
