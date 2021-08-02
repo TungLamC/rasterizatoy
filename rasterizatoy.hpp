@@ -8,6 +8,8 @@
 
 namespace rasterizatoy
 {
+using namespace cimg_library;
+
 template<size_t N, typename T> class Vector;
 template<size_t ROW, size_t COLUMN, typename T> class Matrix;
 
@@ -16,9 +18,8 @@ template<typename T> using Vector3 = Vector<3, T>;
 template<typename T> using Vector4 = Vector<4, T>;
 template<typename T> using Matrix4 = Matrix<4, 4, T>;
 
-using ColorRGB = Vector3<uint8_t>;
-
-using namespace cimg_library;
+using ColorRGB    = Vector3<uint8_t>;
+using ColorBuffer = CImg<uint8_t>*;
 }
 
 //-------------------------------------------------------- math --------------------------------------------------------
@@ -344,6 +345,8 @@ namespace rasterizatoy
 class Window
 {
 public:
+  friend class rasterizater;
+
   inline Window(size_t width, size_t height, const char* title = "rasterizatoy")
     : bitmap_(width, height, 1, 3, 0), display_(bitmap_, title) { }
 
@@ -390,6 +393,20 @@ public:
 private:
   CImg<uint8_t> bitmap_;
   CImgDisplay   display_;
+};
+
+class rasterizater
+{
+public:
+  inline static void clear(const ColorRGB& color) { }
+  inline static void set_current_context(Window* window) { window_ = window; color_buffer_ = &window->bitmap_; }
+  inline static void swap_buffer() { if (!window_) return; window_->swap_buffer(); }
+
+  inline static void draw_call() { /* todo */ }
+
+private:
+  inline static Window*     window_;
+  inline static ColorBuffer color_buffer_;
 };
 }
 
