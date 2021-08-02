@@ -392,19 +392,30 @@ public:
     if (y1 == y2) { for (size_t x = x1; x != x2; x += (x1 <= x2 ? 1 : -1)) put_pixel(x, y1, color); return; }
 
     size_t x, y;
-    size_t rem = 0;
-    size_t dx = x1 < x2 ? x2 - x1 : x1 - x2;
-    size_t dy = y1 < y2 ? y2 - y1 : y1 - y2;
-    if (x2 < x1) std::swap(x1, x2); if (y2 < y1) std::swap(y1, y2);
-    for (x = x1, y = y1; x <= x2; x++)
+    size_t dx = (x1 < x2)? x2 - x1 : x1 - x2;
+    size_t dy = (y1 < y2)? y2 - y1 : y1 - y2;
+    int rem = 0;
+    if (dx >= dy)
     {
-      put_pixel(x, y, color);
-      rem += (dx >= dy ? dy : dx);
-      if (rem >= (dx >= dy ? dx : dy))
+      if (x2 < x1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+      for (x = x1, y = y1; x <= x2; x++)
       {
-        rem -= (dx >= dy ? dx : dy);
-        put_pixel(x, ++y, color);
+        put_pixel(x, y, color);
+        rem += dy;
+        if (rem >= dx) { rem -= dx; y += (y2 >= y1)? 1 : -1; put_pixel(x, y, color); }
       }
+      put_pixel(x2, y2, color);
+    }
+    else
+    {
+      if (y2 < y1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+      for (x = x1, y = y1; y <= y2; y++)
+      {
+        put_pixel(x, y, color);
+        rem += dx;
+        if (rem >= dy) { rem -= dy; x += (x2 >= x1)? 1 : -1; put_pixel(x, y, color); }
+      }
+      put_pixel(x2, y2, color);
     }
   }
 
