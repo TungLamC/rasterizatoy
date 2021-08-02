@@ -18,7 +18,6 @@ int main()
   rasterizater::set_shader(new Shader());
   while (!window.should_close())
   {
-    //    rasterizater::window_->draw_line(640, 540, 960, 180, {255, 0, 0});
     rasterizater::draw_call();
     rasterizater::swap_buffer();
   }
