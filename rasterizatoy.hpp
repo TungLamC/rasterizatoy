@@ -2,6 +2,7 @@
 #define RASTERIZATOY_HPP
 
 #include "cimg.h"
+#include <vector>
 #include <cassert>
 #include <utility>
 #include <initializer_list>
@@ -9,6 +10,8 @@
 namespace rasterizatoy
 {
 using namespace cimg_library;
+
+using real_t = double;
 
 template<size_t N, typename T> class Vector;
 template<size_t ROW, size_t COLUMN, typename T> class Matrix;
@@ -43,7 +46,7 @@ class Vector: public
 public:
   inline Vector() = default;
   inline Vector(const T* pointer) { for (size_t i = 0; i < N; i++) this->components[i] = pointer[i]; }
-  inline Vector(const Vector<N, T>& other) { for (size_t i = 0; i < N; i++) this->components[i] = other.component_[i]; }
+  inline Vector(const Vector<N, T>& other) { for (size_t i = 0; i < N; i++) this->components[i] = other.components[i]; }
   inline Vector(const std::initializer_list<T>& initializer) { for (size_t i = 0; i < N; i++) this->components[i] = *(initializer.begin() + i); }
 
   inline T& operator[](size_t index) { assert(index < N); return this->components[index]; }
@@ -342,6 +345,21 @@ inline std::ostream& operator<<(std::ostream& stream, const Matrix<ROW, COLUMN, 
 //------------------------------------------------------- render -------------------------------------------------------
 namespace rasterizatoy
 {
+struct Vertex
+{
+  Vertex(Vector4<real_t> position = {0, 0, 0, 0}): position(position) { }
+  real_t rhw;
+  Vector4<real_t> position;
+  Vector2<size_t> viewport;
+};
+
+struct Primitive { Vertex vertices[3]; };
+
+struct Shader
+{
+  virtual void vertex_shader(Vertex& vertex) { }
+};
+
 class Window
 {
 public:
@@ -402,11 +420,34 @@ public:
   inline static void set_current_context(Window* window) { window_ = window; color_buffer_ = &window->bitmap_; }
   inline static void swap_buffer() { if (!window_) return; window_->swap_buffer(); }
 
-  inline static void draw_call() { /* todo */ }
+  inline static void input_primitives(const std::vector<Primitive>& primitives) { primitives_ = primitives; }
 
-private:
+  inline static void set_shader(Shader* shader) { shader_ = shader; }
+
+  inline static void draw_call()
+  {
+    for (Primitive& primitive : primitives_)
+    {
+      for (Vertex& vertex : primitive.vertices)
+      {
+        // 顶点着色
+        shader_->vertex_shader(vertex);
+        vertex.rhw = 1 / vertex.position.w;
+        vertex.viewport.x = ((vertex.position.x + 1) / 2) * window_->width();
+        vertex.viewport.y = ((vertex.position.y + 1) / 2) * window_->height();
+      }
+      auto& vertices = primitive.vertices;
+      window_->draw_line(vertices[0].viewport.x, vertices[0].viewport.y, vertices[1].viewport.x, vertices[1].viewport.y, {255, 0, 255});
+      window_->draw_line(vertices[0].viewport.x, vertices[0].viewport.y, vertices[2].viewport.x, vertices[2].viewport.y, {255, 0, 255});
+      window_->draw_line(vertices[2].viewport.x, vertices[2].viewport.y, vertices[1].viewport.x, vertices[1].viewport.y, {255, 0, 255});
+    }
+  }
+
+public:
   inline static Window*     window_;
+  inline static Shader*     shader_;
   inline static ColorBuffer color_buffer_;
+  inline static std::vector<Primitive> primitives_;
 };
 }
 
