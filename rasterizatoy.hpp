@@ -196,6 +196,15 @@ inline std::conditional_t<N == 2, T, Vector<N, T>> cross(const Vector<N, T>& lhs
     return {lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z, lhs.x * rhs.y - lhs.y * rhs.x, lhs.w};
 }
 
+template<size_t N, typename T>
+inline std::ostream& operator<<(std::ostream& stream, const Vector<N, T>& vector)
+{
+  stream << "[";
+  for (size_t i = 0; i < N; i++) stream << vector[i] << (i < N - 1 ? ", " : "");
+  stream << "]";
+  return stream;
+}
+
 template<size_t ROW, size_t COLUMN, typename T>
 class Matrix
 {
@@ -288,6 +297,13 @@ inline Matrix<ROW, RHS_COLUMN, T> operator*(const Matrix<ROW, LHS_COLUMN, T>& lh
     for (size_t column = 0; column < RHS_COLUMN; column++)
       result[row][column] = dot(lhs[row], rhs.column_at(column));
     return result;
+}
+
+template<size_t ROW, size_t COLUMN, typename T>
+inline std::ostream& operator<<(std::ostream& stream, const Matrix<ROW, COLUMN, T>& matrix)
+{
+  for (size_t row = 0; row < ROW; row++) stream << matrix[row] << std::endl;
+  return stream;
 }
 }
 
