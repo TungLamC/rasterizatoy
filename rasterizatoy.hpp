@@ -454,8 +454,8 @@ public:
         // 顶点着色
         shader_->vertex_shader(vertex);
         vertex.rhw = 1 / vertex.position.w;
-        vertex.viewport.x = static_cast<size_t>(((vertex.position.x + 1) / 2) * window_->width());
-        vertex.viewport.y = static_cast<size_t>(((vertex.position.y + 1) / 2) * window_->height());
+        vertex.viewport.x = static_cast<size_t>(((vertex.position.x + 1) / 2) * (real_t)window_->width());
+        vertex.viewport.y = static_cast<size_t>(((vertex.position.y + 1) / 2) * (real_t)window_->height());
       }
       auto& vertices = primitive.vertices;
       window_->draw_line(vertices[0].viewport.x, vertices[0].viewport.y, vertices[1].viewport.x, vertices[1].viewport.y, {255, 0, 255});
