@@ -2,7 +2,9 @@
 #define RASTERIZATOY_HPP
 
 #include "cimg.h"
+#include <chrono>
 #include <vector>
+#include <string>
 #include <cassert>
 #include <utility>
 #include <iostream>
@@ -452,9 +454,15 @@ class rasterizater
 public:
   inline static void clear(const ColorRGB& color) { window_->clear(color); }
   inline static void set_current_context(Window* window) { window_ = window; color_buffer_ = &window->bitmap_; }
-  inline static void swap_buffer() { if (!window_) return; window_->swap_buffer(); }
   inline static void set_shader(Shader* shader) { shader_ = shader; }
   inline static void input_primitives(const std::vector<Primitive>& primitives) { primitives_ = primitives; }
+
+  inline static void swap_buffer(bool fps = true)
+  {
+    if (!window_) return;
+    if (fps) display_fps();
+    window_->swap_buffer();
+  }
 
   inline static void draw_call()
   {
@@ -475,7 +483,19 @@ public:
     }
   }
 
-public:
+private:
+  inline static void display_fps()
+  {
+    static auto last = std::chrono::system_clock::now();
+    auto now = std::chrono::system_clock::now();
+    auto fps = 1000000 / (real_t)(std::chrono::duration_cast<std::chrono::microseconds>(now - last).count());
+    const real_t foreground[] = {0 , 200, 255};
+    const real_t background[] = {0, 0, 0};
+    color_buffer_->draw_text(0, 0, std::to_string(fps).c_str(), foreground, background, 1, 24);
+    last = now;
+  }
+
+private:
   inline static Window*     window_;
   inline static Shader*     shader_;
   inline static ColorBuffer color_buffer_;
