@@ -355,7 +355,7 @@ namespace rasterizatoy
 {
 struct Vertex
 {
-  inline Vertex(const Vector3<real_t>& position, const ColorRGBA& color)
+  inline Vertex(const Vector3<real_t>& position, const ColorRGBA& color = {0, 0, 0, 0})
     : rhw{1}, position{position.x, position.y, position.z, 1}, color{color}, viewport{0, 0} { }
 
   real_t rhw;
