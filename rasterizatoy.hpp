@@ -56,8 +56,13 @@ public:
 
   inline Vector<N, T> normalize() { return *this / length(); }
   inline Vector<N, T> normalize(std::in_place_t) { return *this /= length(); }
-  // fixme: square
-  inline T length(bool square = false) const { T result = 0; for (size_t i = 0; i < N; i++) result += this->components[i] * this->components[i]; return result; }
+
+  inline T length(bool square = false) const
+  {
+    T result = 0;
+    for (size_t i = 0; i < N; i++) result += this->components[i] * this->components[i];
+    return square ? result : std::sqrt(result);
+  }
 };
 
 template<size_t N, typename T>
@@ -182,7 +187,7 @@ inline Vector<N, T>& operator/=(Vector<N, T>& lhs, const Vector<N, T>& rhs)
 }
 
 template<size_t N, typename T>
-inline Vector<N, T>& operator/=(const Vector<N, T>& vector, T scalar)
+inline Vector<N, T>& operator/=(Vector<N, T>& vector, T scalar)
 {
   for (size_t i = 0; i < N; i++) vector[i] = vector[i] / scalar;
   return vector;
@@ -308,7 +313,7 @@ inline Matrix<ROW, RHS_COLUMN, T> operator*(const Matrix<ROW, LHS_COLUMN, T>& lh
   for (size_t row = 0; row < ROW; row++)
     for (size_t column = 0; column < RHS_COLUMN; column++)
       result[row][column] = dot(lhs[row], rhs.column_at(column));
-    return result;
+  return result;
 }
 
 template<typename T>
@@ -447,7 +452,7 @@ public:
 
   inline static void draw_call()
   {
-    for (Primitive& primitive : primitives_)
+    for (Primitive primitive : primitives_)
     {
       for (Vertex& vertex : primitive.vertices)
       {
