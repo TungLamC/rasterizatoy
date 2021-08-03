@@ -317,6 +317,13 @@ inline Matrix<ROW, RHS_COLUMN, T> operator*(const Matrix<ROW, LHS_COLUMN, T>& lh
 }
 
 template<typename T>
+inline T radians(T degrees)
+{
+  static_assert(std::numeric_limits<T>::is_iec559, "'radians' only accpet floating-point input.");
+  return degrees * static_cast<T>(0.01745329251994329576923690768489);
+}
+
+template<typename T>
 inline Matrix4<T> look_at(const Vector3<T>& eye, const Vector3<T>& center, const Vector3<T>& world_up)
 {
   Vector3<T> z_axis = (eye - center).normalize(std::in_place);
@@ -333,7 +340,6 @@ inline Matrix4<T> look_at(const Vector3<T>& eye, const Vector3<T>& center, const
 template<typename T>
 inline Matrix4<T> perspective(T fovy, T aspect, T z_near, T z_far)
 {
-  fovy = fovy * static_cast<T>(0.01745329251994329576923690768489);
   return {
     {1 / (aspect * std::tan(fovy / 2)) , 0, 0, 0},
     {0, 1 / (std::tan(fovy / 2)), 0, 0},
