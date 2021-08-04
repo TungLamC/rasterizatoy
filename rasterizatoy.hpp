@@ -2,6 +2,7 @@
 #define RASTERIZATOY_HPP
 
 #include "cimg.h"
+#include <any>
 #include <chrono>
 #include <vector>
 #include <string>
@@ -14,16 +15,14 @@ namespace rasterizatoy
 {
 using namespace cimg_library;
 
-using real_t = double;
-
 template<size_t N, typename T> class Vector;
 template<size_t ROW, size_t COLUMN, typename T> class Matrix;
-
 template<typename T> using Vector2 = Vector<2, T>;
 template<typename T> using Vector3 = Vector<3, T>;
 template<typename T> using Vector4 = Vector<4, T>;
 template<typename T> using Matrix4 = Matrix<4, 4, T>;
 
+using real_t      = double;
 using ColorRGB    = Vector3<uint8_t>;
 using ColorRGBA   = Vector4<uint8_t>;
 using ColorBuffer = CImg<uint8_t>*;
@@ -206,7 +205,7 @@ inline T dot(const Vector<N, T>& lhs, const Vector<N, T>& rhs)
 template<size_t N, typename T>
 inline std::conditional_t<N == 2, T, Vector<N, T>> cross(const Vector<N, T>& lhs, const Vector<N, T>& rhs) 
 {
-  static_assert(N == 2 | N == 3 || N == 4);
+  static_assert(N == 2 || N == 3 || N == 4);
   if constexpr (N == 2)
     return lhs.x * rhs.y - lhs.y * rhs.x;
   if constexpr (N == 3)
@@ -417,9 +416,9 @@ public:
     if (y1 == y2) { for (size_t x = x1; x != x2; x += (x1 <= x2 ? 1 : -1)) put_pixel(x, y1, color); return; }
 
     size_t x, y;
+    size_t rem = 0;
     size_t dx = (x1 < x2)? x2 - x1 : x1 - x2;
     size_t dy = (y1 < y2)? y2 - y1 : y1 - y2;
-    size_t rem = 0;
     if (dx >= dy)
     {
       if (x2 < x1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
