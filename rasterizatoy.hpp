@@ -469,9 +469,18 @@ public:
     {
       for (Vertex& vertex : primitive.vertices)
       {
-        // 顶点着色
+        // 顶点着色 local space -> clip space
         shader_->vertex_shader(vertex);
+
+        // todo 裁剪
+
+        // 计算w的倒数
         vertex.rhw = 1 / vertex.position.w;
+
+        // 透视除法 clip space -> ndc space
+        vertex.position *= vertex.rhw;
+
+        // ndc space -> view space
         vertex.viewport.x = static_cast<size_t>(((vertex.position.x + 1) / 2) * (real_t)window_->width());
         vertex.viewport.y = static_cast<size_t>(((vertex.position.y + 1) / 2) * (real_t)window_->height());
       }
