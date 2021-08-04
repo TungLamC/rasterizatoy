@@ -19,8 +19,8 @@ public:
     real_t radius = 5;
     real_t x = std::sin(radians(tick)) * radius;
     real_t z = std::cos(radians(tick)) * radius;
-    auto view = look_at<real_t>({x, 0, z}, {0, 0, 0}, {0, 1, 0});
-    auto projection = perspective<real_t>(radians(5.f), (float)1280 / (float)720, 0.1, 100);
+    auto view = look_at<real_t>({x, 2, z}, {0, 0, 0}, {0, 1, 0});
+    auto projection = perspective<real_t>(radians(5.f), (float)800 / (float)600, 0.1, 100);
     vertex.position = view * vertex.position;
   }
 };
@@ -42,7 +42,7 @@ int main()
     {{{+0.5f, +0.5f, +0.5f}}, {{-0.5f, +0.5f, +0.5f}}, {{-0.5f, +0.5f, -0.5f}}},
   };
 
-  Window window{1280, 720};
+  Window window{800, 600};
   rasterizater::set_current_context(&window);
   rasterizater::set_shader(new CameraShader());
   rasterizater::input_primitives(primitives);
