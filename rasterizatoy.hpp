@@ -14,15 +14,15 @@
 namespace rasterizatoy
 {
 using namespace cimg_library;
+using real_t = double;
 
 template<size_t N, typename T> class Vector;
 template<size_t ROW, size_t COLUMN, typename T> class Matrix;
-template<typename T> using Vector2 = Vector<2, T>;
-template<typename T> using Vector3 = Vector<3, T>;
-template<typename T> using Vector4 = Vector<4, T>;
-template<typename T> using Matrix4 = Matrix<4, 4, T>;
+template<typename T = real_t> using Vector2 = Vector<2, T>;
+template<typename T = real_t> using Vector3 = Vector<3, T>;
+template<typename T = real_t> using Vector4 = Vector<4, T>;
+template<typename T = real_t> using Matrix4 = Matrix<4, 4, T>;
 
-using real_t      = double;
 using ColorRGB    = Vector3<uint8_t>;
 using ColorRGBA   = Vector4<uint8_t>;
 using ColorBuffer = CImg<uint8_t>*;
@@ -367,8 +367,8 @@ struct Vertex
 
   real_t rhw;
   ColorRGBA color;
-  Vector4<real_t> position;
-  Vector2<size_t> viewport;
+  Vector4<real_t>  position;
+  Vector2<int32_t> viewport;
 };
 
 struct Primitive 
@@ -383,6 +383,8 @@ struct Shader
 {
   virtual void vertex_shader(Vertex& vertex) { }
 };
+
+enum class CullMode { Off, Back, Front, All };
 
 class Window
 {
@@ -455,6 +457,8 @@ public:
   inline static void set_current_context(Window* window) { window_ = window; color_buffer_ = &window->bitmap_; }
   inline static void set_shader(Shader* shader) { shader_ = shader; }
   inline static void input_primitives(const std::vector<Primitive>& primitives) { primitives_ = primitives; }
+  inline static void draw_call() { for (const Primitive& primitive : primitives_) draw_primitive(primitive); }
+  inline static void set_cull_mode(CullMode mode) { cull_mode_ = mode; }
 
   inline static void swap_buffer(bool fps = true)
   {
@@ -463,35 +467,48 @@ public:
     window_->swap_buffer();
   }
 
-  inline static void draw_call()
+private:
+  inline static void draw_primitive(Primitive primitive)
   {
-    for (Primitive primitive : primitives_)
+    for (Vertex& vertex : primitive.vertices)
     {
-      for (Vertex& vertex : primitive.vertices)
-      {
-        // 顶点着色 local space -> clip space
-        shader_->vertex_shader(vertex);
+      // 顶点着色 local space -> clip space
+      shader_->vertex_shader(vertex);
 
-        // todo 裁剪
+      // todo 裁剪
 
-        // 计算w的倒数
-        vertex.rhw = 1 / vertex.position.w;
+      // 计算w的倒数
+      vertex.rhw = 1 / vertex.position.w;
 
-        // 透视除法 clip space -> ndc space
-        vertex.position *= vertex.rhw;
+      // 透视除法 clip space -> ndc space
+      vertex.position *= vertex.rhw;
 
-        // ndc space -> view space
-        vertex.viewport.x = static_cast<size_t>(((vertex.position.x + 1) / 2) * (real_t)window_->width());
-        vertex.viewport.y = static_cast<size_t>(((vertex.position.y + 1) / 2) * (real_t)window_->height());
-      }
-      auto& vertices = primitive.vertices;
-      window_->draw_line(vertices[0].viewport.x, vertices[0].viewport.y, vertices[1].viewport.x, vertices[1].viewport.y, {255, 0, 255});
-      window_->draw_line(vertices[0].viewport.x, vertices[0].viewport.y, vertices[2].viewport.x, vertices[2].viewport.y, {255, 0, 255});
-      window_->draw_line(vertices[2].viewport.x, vertices[2].viewport.y, vertices[1].viewport.x, vertices[1].viewport.y, {255, 0, 255});
+      // ndc space -> view space
+      vertex.viewport.x = static_cast<size_t>(((vertex.position.x + 1) / 2) * (real_t)window_->width());
+      vertex.viewport.y = static_cast<size_t>(((vertex.position.y + 1) / 2) * (real_t)window_->height());
+    }
+
+    const auto& vertices = primitive.vertices;
+
+    if (should_cull(vertices[0].viewport, vertices[1].viewport, vertices[2].viewport)) return;
+
+    window_->draw_line(vertices[0].viewport.x, vertices[0].viewport.y, vertices[1].viewport.x, vertices[1].viewport.y, {255, 0, 255});
+    window_->draw_line(vertices[0].viewport.x, vertices[0].viewport.y, vertices[2].viewport.x, vertices[2].viewport.y, {255, 0, 255});
+    window_->draw_line(vertices[2].viewport.x, vertices[2].viewport.y, vertices[1].viewport.x, vertices[1].viewport.y, {255, 0, 255});
+  }
+
+  inline static bool should_cull(const Vector2<int32_t>& v0, const Vector2<int32_t>& v1, const Vector2<int32_t>& v2)
+  {
+    switch (cull_mode_)
+    {
+      case CullMode::Off:   return false;
+      case CullMode::Back:  return cross(v1 - v0, v2 - v0) < 0;
+      case CullMode::Front: return cross(v1 - v0, v2 - v0) > 0;
+      case CullMode::All:   return true;
+      default:              return false;
     }
   }
 
-private:
   inline static void display_fps()
   {
     static auto last = std::chrono::system_clock::now();
@@ -504,10 +521,11 @@ private:
   }
 
 private:
-  inline static Window*     window_;
-  inline static Shader*     shader_;
-  inline static ColorBuffer color_buffer_;
-  inline static std::vector<Primitive> primitives_;
+  inline static Window*     window_ = nullptr;
+  inline static Shader*     shader_ = nullptr;
+  inline static CullMode    cull_mode_ = CullMode::Off;
+  inline static ColorBuffer color_buffer_ = nullptr;
+  inline static std::vector<Primitive> primitives_ = {};
 };
 }
 
