@@ -360,6 +360,9 @@ inline std::ostream& operator<<(std::ostream& stream, const Matrix<ROW, COLUMN, 
 //------------------------------------------------------- render -------------------------------------------------------
 namespace rasterizatoy
 {
+enum class Facing { Back, Front };
+enum class CullMode { Off, Back, Front, All };
+
 struct Vertex
 {
   inline Vertex(const Vector3<real_t>& position, const ColorRGBA& color = {0, 0, 0, 0})
@@ -376,6 +379,14 @@ struct Primitive
   inline Primitive(const Vertex& vertex0, const Vertex& vertex1, const Vertex& vertex2)
     : vertices{vertex0, vertex1, vertex2} { }
 
+  inline Facing facing() const
+  {
+    auto v0 = vertices[0].viewport;
+    auto v1 = vertices[1].viewport;
+    auto v2 = vertices[2].viewport;
+    return cross(v1 - v0, v2 - v0) < 0 ? Facing::Back : Facing::Front;
+  }
+
   Vertex vertices[3];
 };
 
@@ -384,9 +395,6 @@ struct Shader
   virtual void vertex_shader(Vertex& vertex) { }
 };
 
-enum class Facing { Back, Front };
-
-enum class CullMode { Off, Back, Front, All };
 
 class Window
 {
@@ -470,10 +478,10 @@ public:
         // 顶点着色 local space -> clip space
         shader_->vertex_shader(vertex);
 
-      // todo 裁剪
+        // todo 裁剪
 
-      // 计算w的倒数
-      vertex.rhw = 1 / vertex.position.w;
+        // 计算w的倒数
+        vertex.rhw = 1 / vertex.position.w;
 
         // 透视除法 clip space -> ndc space
         vertex.position *= vertex.rhw;
@@ -501,14 +509,6 @@ public:
   }
 
 private:
-  inline static Facing primitive_facing(const Primitive& primitive)
-  {
-    auto v0 = primitive.vertices[0].viewport;
-    auto v1 = primitive.vertices[1].viewport;
-    auto v2 = primitive.vertices[2].viewport;
-    return cross(v1 - v0, v2 - v0) < 0 ? Facing::Back : Facing::Front;
-  }
-
   inline static bool should_cull(const Primitive& primitive)
   {
     auto v0 = primitive.vertices[0].viewport;
@@ -517,8 +517,8 @@ private:
     switch (cull_mode_)
     {
       case CullMode::Off:   return false;
-      case CullMode::Back:  return cross(v1 - v0, v2 - v0) < 0;
-      case CullMode::Front: return cross(v1 - v0, v2 - v0) > 0;
+      case CullMode::Back:  return primitive.facing() == Facing::Back;
+      case CullMode::Front: return primitive.facing() == Facing::Front;
       case CullMode::All:   return true;
       default:              return false;
     }
