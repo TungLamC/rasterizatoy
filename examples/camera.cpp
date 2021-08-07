@@ -1,9 +1,6 @@
 #ifndef RASTERIZATOY_CAMERA_CPP_H
 #define RASTERIZATOY_CAMERA_CPP_H
 
-#include <any>
-#include <map>
-#include <variant>
 #include "../rasterizatoy.hpp"
 
 using namespace rasterizatoy;
@@ -19,8 +16,8 @@ public:
     real_t x = std::sin(radians(tick)) * radius;
     real_t z = std::cos(radians(tick)) * radius;
     auto view = look_at<real_t>({x, 2, z}, {0, 0, 0}, {0, 1, 0});
-    auto projection = perspective<real_t>(radians(5.f), (float)800 / (float)600, 0.1, 100);
-    vertex.position = view * vertex.position;
+    auto projection = perspective<real_t>(radians(45.f), (float)800 / (float)600, 0.1, 100);
+    vertex.position = projection * view * vertex.position;
   }
 };
 
