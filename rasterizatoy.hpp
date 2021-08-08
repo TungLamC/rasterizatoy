@@ -18,10 +18,10 @@ using real_t = double;
 
 template<size_t N, typename T> class Vector;
 template<size_t ROW, size_t COLUMN, typename T> class Matrix;
-template<typename T = real_t> using Vector2 = Vector<2, T>;
-template<typename T = real_t> using Vector3 = Vector<3, T>;
-template<typename T = real_t> using Vector4 = Vector<4, T>;
-template<typename T = real_t> using Matrix4 = Matrix<4, 4, T>;
+template<typename T> using Vector2 = Vector<2, T>;
+template<typename T> using Vector3 = Vector<3, T>;
+template<typename T> using Vector4 = Vector<4, T>;
+template<typename T> using Matrix4 = Matrix<4, 4, T>;
 
 using ColorRGB    = Vector3<uint8_t>;
 using ColorRGBA   = Vector4<uint8_t>;
@@ -54,6 +54,19 @@ public:
 
   inline T& operator[](size_t index) { assert(index < N); return this->components[index]; }
   inline const T& operator[](size_t index) const { assert(index < N); return this->components[index]; }
+
+  template<typename U>
+  inline Vector<N, U> as() const { return *this; }
+
+  template<typename U>
+  inline operator Vector<N, U>() const
+  {
+    static_assert(std::is_convertible_v<T, U>);
+    Vector<N, U> result;
+    for (size_t i = 0; i < N; i++) result[i] = static_cast<U>(this->components[i]);
+    return result;
+  }
+
 
   inline Vector<N, T> normalize() { return *this / length(); }
   inline Vector<N, T> normalize(std::in_place_t) { return *this /= length(); }
@@ -370,8 +383,8 @@ struct Vertex
 
   real_t rhw;
   ColorRGBA color;
-  Vector4<real_t>  position;
-  Vector2<int32_t> viewport;
+  Vector4<real_t> position;
+  Vector2<size_t> viewport;
 };
 
 struct Primitive
@@ -381,9 +394,9 @@ struct Primitive
 
   inline Facing facing() const
   {
-    auto v0 = vertices[0].viewport;
-    auto v1 = vertices[1].viewport;
-    auto v2 = vertices[2].viewport;
+    auto v0 = vertices[0].viewport.as<long>();
+    auto v1 = vertices[1].viewport.as<long>();
+    auto v2 = vertices[2].viewport.as<long>();
     return cross(v1 - v0, v2 - v0) < 0 ? Facing::Back : Facing::Front;
   }
 
@@ -487,8 +500,8 @@ public:
         vertex.position *= vertex.rhw;
 
         // ndc space -> view space
-        vertex.viewport.x = static_cast<size_t>(((vertex.position.x + 1) / 2) * (real_t)window_->width());
-        vertex.viewport.y = static_cast<size_t>(((vertex.position.y + 1) / 2) * (real_t)window_->height());
+        vertex.viewport.x = static_cast<size_t>((((vertex.position.x + 1) / 2) * (real_t)window_->width()));
+        vertex.viewport.y = static_cast<size_t>((((vertex.position.y + 1) / 2) * (real_t)window_->height()));
       }
       
       if (should_cull(primitive)) continue;
@@ -511,9 +524,6 @@ public:
 private:
   inline static bool should_cull(const Primitive& primitive)
   {
-    auto v0 = primitive.vertices[0].viewport;
-    auto v1 = primitive.vertices[1].viewport;
-    auto v2 = primitive.vertices[2].viewport;
     switch (cull_mode_)
     {
       case CullMode::Off:   return false;
