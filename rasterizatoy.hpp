@@ -580,15 +580,8 @@ public:
 
       // edge equation
       if (primitive.facing() == Facing::Back) std::swap(primitive.vertices[1], primitive.vertices[2]);
+
       auto& vertices = primitive.vertices;
-
-      auto v0 = vertices[0].viewport.as<integer>();
-      auto v1 = vertices[1].viewport.as<integer>();
-      auto v2 = vertices[2].viewport.as<integer>();
-
-      window_->draw_line(v0.x, v0.y, v1.x, v1.y, {255, 255, 255});
-      window_->draw_line(v1.x, v1.y, v2.x, v2.y, {255, 255, 255});
-      window_->draw_line(v2.x, v2.y, v0.x, v0.y, {255, 255, 255});
 
       auto [min_x, min_y, max_x, max_y] = bounding_box(primitive);
 
@@ -597,27 +590,22 @@ public:
       {
         for (fragment.viewport.y = min_y; fragment.viewport.y <= max_y; fragment.viewport.y++)
         {
-          integer bias0 = is_top_left_edge(vertices[1].viewport, vertices[2].viewport);
-          integer bias1 = is_top_left_edge(vertices[2].viewport, vertices[0].viewport);
-          integer bias2 = is_top_left_edge(vertices[0].viewport, vertices[1].viewport);
-
-          integer w0 = orient2d(vertices[1].viewport, vertices[2].viewport, fragment.viewport) + bias0;
-          integer w1 = orient2d(vertices[2].viewport, vertices[0].viewport, fragment.viewport) + bias1;
-          integer w2 = orient2d(vertices[0].viewport, vertices[1].viewport, fragment.viewport) + bias2;
-
-          if (w0 < 0 || w1 < 0 || w2 < 0) continue;
-
           Vector2D point{fragment.viewport.x + 0.5, fragment.viewport.y + 0.5};
           Vector2D ap = point - vertices[0].viewport;
           Vector2D bp = point - vertices[1].viewport;
           Vector2D cp = point - vertices[2].viewport;
-          decimal a = std::abs(cross(bp, cp));
-          decimal b = std::abs(cross(cp, ap));
-          decimal c = std::abs(cross(ap, bp));
-          decimal s = a + b + c;
-          a /= s; b /= s; c /= s;
+          decimal a = cross(bp, cp);
+          decimal b = cross(cp, ap);
+          decimal c = cross(ap, bp);
 
-          Vector4D color = a * vertices[0].color + b * vertices[1].color + c * vertices[1].color;
+          if (a < 0 || b < 0 || c < 0) continue;
+
+          decimal s = a + b + c;
+          auto w0 = a / s;
+          auto w1 = b / s;
+          auto w2 = c / s;
+
+          Vector4D color = w0 * vertices[0].color + w1 * vertices[1].color + w2 * vertices[1].color;
           fragment.color = {color.r, color.g, color.b};
           shader_->fragment_shader(fragment);
 
@@ -639,16 +627,6 @@ private:
     integer max_y = std::max({v0.y, v1.y, v2.y});
     // todo 与屏幕宽高做对比
     return std::make_tuple(min_x, min_y, max_x, max_y);
-  }
-
-  inline static integer orient2d(const Vector2I& begin, const Vector2I& end, const Vector2I& point)
-  {
-    return (end.x - begin.x) * (point.y - begin.y) - (end.y - begin.y) * (point.x - begin.x);
-  }
-
-  inline static bool is_top_left_edge(const Vector2I& begin, const Vector2I& end)
-  {
-    return ((begin.y == end.y) && (begin.x < end.x)) || (begin.y > end.y);
   }
 
   inline static void display_fps()
