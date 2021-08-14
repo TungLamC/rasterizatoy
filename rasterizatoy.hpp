@@ -601,11 +601,9 @@ public:
           if (a < 0 || b < 0 || c < 0) continue;
 
           decimal s = a + b + c;
-          auto w0 = a / s;
-          auto w1 = b / s;
-          auto w2 = c / s;
+          a /= s; b /= s; c /= s;
 
-          Vector4D color = w0 * vertices[0].color + w1 * vertices[1].color + w2 * vertices[1].color;
+          Vector4D color = a * vertices[0].color + b * vertices[1].color + c * vertices[2].color;
           fragment.color = {color.r, color.g, color.b};
           shader_->fragment_shader(fragment);
 
