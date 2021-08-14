@@ -601,8 +601,16 @@ public:
           if (a < 0 || b < 0 || c < 0) continue;
 
           decimal s = a + b + c;
-          a /= s; b /= s; c /= s;
+          a /= s;
+          b /= s;
+          c /= s;
 
+          // 透视校正插值 https://zhuanlan.zhihu.com/p/380634903
+          decimal rhw = a * vertices[0].rhw + b * vertices[1].rhw + c * vertices[2].rhw;
+          decimal w = 1.0 / rhw;
+          a = vertices[0].rhw * a * w;
+          b = vertices[0].rhw * b * w;
+          c = vertices[0].rhw * c * w;
           Vector4D color = a * vertices[0].color + b * vertices[1].color + c * vertices[2].color;
           fragment.color = {color.r, color.g, color.b};
           shader_->fragment_shader(fragment);
