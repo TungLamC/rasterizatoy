@@ -36,11 +36,6 @@ using Vector2D = Vector<2, decimal>;
 using Vector3D = Vector<3, decimal>;
 using Vector4D = Vector<4, decimal>;
 using Matrix4D = Matrix<4, 4, decimal>;
-
-using ShaderPass = std::variant<Vector2D, Vector3D, Vector4D, Matrix4D>;
-
-using RGB  = Vector3<decimal>;
-using RGBA = Vector4<decimal>;
 }
 
 //-------------------------------------------------------- math --------------------------------------------------------
@@ -95,27 +90,16 @@ struct Vector: public
     Vector<N, U> result;
     for (size_t i = 0; i < N; i++)
     {
-      std::is_floating_point_v<T> && std::is_integral_v<U>
-        ? result[i] = std::lround(this->components[i]) 
-        : result[i] =  static_cast<U>(this->components[i]);
+      if constexpr (std::is_floating_point_v<T> && std::is_integral_v<U>)
+        result[i] = std::lround(this->components[i]);
+      else
+        result[i] = static_cast<U>(this->components[i]);
     }
     return result;
   }
 
   inline Vector<N, T> normalize() { return *this / length(); }
   inline Vector<N, T> normalize(std::in_place_t) { return *this /= length(); }
-
-  inline Vector<N, T> clamp(T min, T max) const
-  {
-    Vector<N, T> result;
-    for (auto i = 0; i < N; i++) result[i] = std::clamp(this->components[i], min, max);
-    return result;
-  }
-  
-  inline Vector<N, T> clamp(std::in_place_t)
-  {
-    for (auto i = 0; i < N; i++) this->components[i] = std::clamp(this->components[i], min, max);
-  }
 
   inline T length(bool square = false) const
   {
@@ -271,6 +255,27 @@ inline std::conditional_t<N == 2, T, Vector<N, T>> cross(const Vector<N, T>& lhs
     return {lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z, lhs.x * rhs.y - lhs.y * rhs.x};
   if constexpr (N == 4)
     return {lhs.y * rhs.z - lhs.z * rhs.y, lhs.z * rhs.x - lhs.x * rhs.z, lhs.x * rhs.y - lhs.y * rhs.x, lhs.w};
+}
+
+template<size_t N, typename T>
+inline Vector<N, uint8_t> to_color(const Vector<N, T>& color)
+{
+  static_assert(N == 3 || N == 4);
+  if constexpr (N == 3)
+  {
+    auto r =static_cast<uint8_t>(std::clamp(color.r, 0.0, 255.0));
+    auto g =static_cast<uint8_t>(std::clamp(color.g, 0.0, 255.0));
+    auto b =static_cast<uint8_t>(std::clamp(color.b, 0.0, 255.0));
+    return {r, g, b};
+  }
+  if constexpr (N == 4)
+  {
+    auto r =static_cast<uint8_t>(std::clamp(color.r, 0.0, 255.0));
+    auto g =static_cast<uint8_t>(std::clamp(color.g, 0.0, 255.0));
+    auto b =static_cast<uint8_t>(std::clamp(color.b, 0.0, 255.0));
+    auto a =static_cast<uint8_t>(std::clamp(color.a, 0.0, 255.0));
+    return {r, g, b, a};
+  }
 }
 
 template<size_t N, typename T>
@@ -431,7 +436,7 @@ enum class Facing { Back, Front };
 struct Vertex
 {
   inline Vertex(const Vector3D& position, const Vector4D& color = {0, 0, 0, 0})
-    : rhw{1}, normal{0, 0}, texcoord{0, 0}, position{position.x, position.y, position.z, 1}, color{color}, viewport{0, 0} { }
+    : rhw{1}, normal{0, 0}, texcoord{0, 0}, position{position.x, position.y, position.z, 1}, color{color}, viewport{0, 0} {}
 
   decimal rhw;
   Vector4D color;
@@ -441,11 +446,10 @@ struct Vertex
   Vector4D position;
 };
 
-
 struct Primitive
 {
   inline Primitive(const Vertex& vertex0, const Vertex& vertex1, const Vertex& vertex2)
-    : vertices{vertex0, vertex1, vertex2} { }
+    : vertices{vertex0, vertex1, vertex2} {}
 
   inline Facing facing() const
   {
@@ -467,7 +471,6 @@ struct Fragment
   Vector4D position;
 };
 
-
 struct Shader
 {
   virtual void vertex_shader(Vertex& vertex) {}
@@ -488,14 +491,50 @@ class Window
     inline uint32_t width() const { return display_.width(); }
     inline uint32_t height() const { return display_.height(); }
     inline bool should_close() const { return display_.is_closed(); }
-    inline void clear(const Vector3D& color) { cimg_forXY(bitmap_, x, y) { put_pixel(x, y, color.clamp(0, 255).as<uint8_t>()); } }
+    inline void clear(const Vector3D& color) { auto rgb = to_color(color); bitmap_.fill(rgb.r, rgb.g, rgb.b); }
 
-    inline void put_pixel(size_t x, size_t y, const Vector3D& color)
+    inline void put_pixel(uint32_t x, uint32_t y, const Vector3D& color)
     {
+      auto rgb = to_color(color);
       y = height() - y - 1;
-      bitmap_(x, y, 0) = color.r < 0 ? 0 : color.r > 255 ? 255 : static_cast<uint8_t>(color.r);
-      bitmap_(x, y, 1) = color.g < 0 ? 0 : color.g > 255 ? 255 : static_cast<uint8_t>(color.g);
-      bitmap_(x, y, 2) = color.b < 0 ? 0 : color.b > 255 ? 255 : static_cast<uint8_t>(color.b);
+      bitmap_(x, y, 0) = rgb.r;
+      bitmap_(x, y, 1) = rgb.g;
+      bitmap_(x, y, 2) = rgb.b;
+    }
+
+    void draw_line(uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, const Vector3D& color)
+    {
+      if (x1 == x2 && y1 == y2) { put_pixel(x1, y1, color); return; }
+      if (x1 == x2) { for (auto y = y1; y != y2; y += (y1 <= y2 ? 1 : -1)) put_pixel(x1, y, color); return; }
+      if (y1 == y2) { for (auto x = x1; x != x2; x += (x1 <= x2 ? 1 : -1)) put_pixel(x, y1, color); return; }
+
+      uint32_t x, y;
+      uint32_t rem = 0;
+      uint32_t dx = (x1 < x2)? x2 - x1 : x1 - x2;
+      uint32_t dy = (y1 < y2)? y2 - y1 : y1 - y2;
+      if (dx >= dy)
+      {
+        if (x2 < x1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+        for (x = x1, y = y1; x <= x2; x++)
+        {
+          put_pixel(x, y, color);
+          rem += dy;
+          if (rem >= dx) { rem -= dx; y += (y2 >= y1)? 1 : -1; put_pixel(x, y, color); }
+
+        }
+        put_pixel(x2, y2, color);
+      }
+      else
+      {
+        if (y2 < y1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+        for (x = x1, y = y1; y <= y2; y++)
+        {
+          put_pixel(x, y, color);
+          rem += dx;
+          if (rem >= dy) { rem -= dy; x += (x2 >= x1)? 1 : -1; put_pixel(x, y, color); }
+        }
+        put_pixel(x2, y2, color);
+      }
     }
 
   private:
@@ -543,6 +582,14 @@ public:
       if (primitive.facing() == Facing::Back) std::swap(primitive.vertices[1], primitive.vertices[2]);
       auto& vertices = primitive.vertices;
 
+      auto v0 = vertices[0].viewport.as<integer>();
+      auto v1 = vertices[1].viewport.as<integer>();
+      auto v2 = vertices[2].viewport.as<integer>();
+
+      window_->draw_line(v0.x, v0.y, v1.x, v1.y, {255, 255, 255});
+      window_->draw_line(v1.x, v1.y, v2.x, v2.y, {255, 255, 255});
+      window_->draw_line(v2.x, v2.y, v0.x, v0.y, {255, 255, 255});
+
       auto [min_x, min_y, max_x, max_y] = bounding_box(primitive);
 
       Fragment fragment{};
@@ -579,7 +626,7 @@ public:
       }
     }
   }
-  
+
 private:
   inline static std::tuple<integer, integer, integer, integer> bounding_box(const Primitive& primitive)
   {
