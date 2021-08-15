@@ -5,10 +5,10 @@ using namespace rasterizatoy;
 int main()
 {
   Primitive primitive{
-    {{-0.5, -0.5, +0.0}, {255, 255, 255}}, {{+0.5, -0.5, +1.0}, {255, 255, 255}}, {{+0.0, +0.5, +0.0}, {255, 255, 255}}
+    {{-0.5, -0.5, +0.0}, {255, 0, 0}}, {{+0.5, -0.5, +1.0}, {0, 255, 0}}, {{+0.0, +0.5, +0.0}, {0, 0, 0}}
   };
 
-  Window window(1280, 720);
+  Window window(800, 600);
   rasterizater::set_current_context(&window);
   rasterizater::input_primitives(std::vector<Primitive>{primitive});
   rasterizater::set_shader(new Shader());
