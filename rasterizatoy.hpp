@@ -493,69 +493,69 @@ struct Shader
 };
 
 class Window
+{
+public:
+  friend class rasterizater;
+
+  inline Window(uint32_t width, uint32_t height, const char* title = "rasterizatoy")
+  : bitmap_(width, height, 1, 3, 0), display_(bitmap_, title) { }
+
+  void swap_buffer() { bitmap_.display(display_); }
+
+  inline void close() { display_.close(); }
+  inline uint32_t width() const { return display_.width(); }
+  inline uint32_t height() const { return display_.height(); }
+  inline bool should_close() const { return display_.is_closed(); }
+  inline void clear(const Vector3D& color) { auto rgb = to_color(color); bitmap_.fill(rgb.r, rgb.g, rgb.b); }
+
+  inline void put_pixel(uint32_t x, uint32_t y, const Vector3D& color)
   {
-  public:
-    friend class rasterizater;
+    auto rgb = to_color(color);
+    y = height() - y - 1;
+    bitmap_(x, y, 0) = rgb.r;
+    bitmap_(x, y, 1) = rgb.g;
+    bitmap_(x, y, 2) = rgb.b;
+  }
 
-    inline Window(uint32_t width, uint32_t height, const char* title = "rasterizatoy")
-    : bitmap_(width, height, 1, 3, 0), display_(bitmap_, title) { }
+  void draw_line(uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, const Vector3D& color)
+  {
+    if (x1 == x2 && y1 == y2) { put_pixel(x1, y1, color); return; }
+    if (x1 == x2) { for (auto y = y1; y != y2; y += (y1 <= y2 ? 1 : -1)) put_pixel(x1, y, color); return; }
+    if (y1 == y2) { for (auto x = x1; x != x2; x += (x1 <= x2 ? 1 : -1)) put_pixel(x, y1, color); return; }
 
-    void swap_buffer() { bitmap_.display(display_); }
-
-    inline void close() { display_.close(); }
-    inline uint32_t width() const { return display_.width(); }
-    inline uint32_t height() const { return display_.height(); }
-    inline bool should_close() const { return display_.is_closed(); }
-    inline void clear(const Vector3D& color) { auto rgb = to_color(color); bitmap_.fill(rgb.r, rgb.g, rgb.b); }
-
-    inline void put_pixel(uint32_t x, uint32_t y, const Vector3D& color)
+    uint32_t x, y;
+    uint32_t rem = 0;
+    uint32_t dx = (x1 < x2)? x2 - x1 : x1 - x2;
+    uint32_t dy = (y1 < y2)? y2 - y1 : y1 - y2;
+    if (dx >= dy)
     {
-      auto rgb = to_color(color);
-      y = height() - y - 1;
-      bitmap_(x, y, 0) = rgb.r;
-      bitmap_(x, y, 1) = rgb.g;
-      bitmap_(x, y, 2) = rgb.b;
-    }
+      if (x2 < x1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+      for (x = x1, y = y1; x <= x2; x++)
+      {
+        put_pixel(x, y, color);
+        rem += dy;
+        if (rem >= dx) { rem -= dx; y += (y2 >= y1)? 1 : -1; put_pixel(x, y, color); }
 
-    void draw_line(uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, const Vector3D& color)
+      }
+      put_pixel(x2, y2, color);
+    }
+    else
     {
-      if (x1 == x2 && y1 == y2) { put_pixel(x1, y1, color); return; }
-      if (x1 == x2) { for (auto y = y1; y != y2; y += (y1 <= y2 ? 1 : -1)) put_pixel(x1, y, color); return; }
-      if (y1 == y2) { for (auto x = x1; x != x2; x += (x1 <= x2 ? 1 : -1)) put_pixel(x, y1, color); return; }
-
-      uint32_t x, y;
-      uint32_t rem = 0;
-      uint32_t dx = (x1 < x2)? x2 - x1 : x1 - x2;
-      uint32_t dy = (y1 < y2)? y2 - y1 : y1 - y2;
-      if (dx >= dy)
+      if (y2 < y1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+      for (x = x1, y = y1; y <= y2; y++)
       {
-        if (x2 < x1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
-        for (x = x1, y = y1; x <= x2; x++)
-        {
-          put_pixel(x, y, color);
-          rem += dy;
-          if (rem >= dx) { rem -= dx; y += (y2 >= y1)? 1 : -1; put_pixel(x, y, color); }
-
-        }
-        put_pixel(x2, y2, color);
+        put_pixel(x, y, color);
+        rem += dx;
+        if (rem >= dy) { rem -= dy; x += (x2 >= x1)? 1 : -1; put_pixel(x, y, color); }
       }
-      else
-      {
-        if (y2 < y1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
-        for (x = x1, y = y1; y <= y2; y++)
-        {
-          put_pixel(x, y, color);
-          rem += dx;
-          if (rem >= dy) { rem -= dy; x += (x2 >= x1)? 1 : -1; put_pixel(x, y, color); }
-        }
-        put_pixel(x2, y2, color);
-      }
+      put_pixel(x2, y2, color);
     }
+  }
 
-  private:
-    CImg<uint8_t> bitmap_;
-    CImgDisplay   display_;
-  };
+private:
+  CImg<uint8_t> bitmap_;
+  CImgDisplay   display_;
+};
 
 class rasterizater
 {
