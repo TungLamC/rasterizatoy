@@ -3,6 +3,7 @@
 
 #include "cimg.h"
 
+#include <any>
 #include <map>
 #include <cmath>
 #include <chrono>
@@ -11,6 +12,7 @@
 #include <variant>
 #include <cassert>
 #include <iostream>
+#include <functional>
 #include <type_traits>
 
 namespace rasterizatoy
@@ -426,6 +428,19 @@ inline std::ostream& operator<<(std::ostream& stream, const Matrix<ROW, COLUMN, 
   for (size_t row = 0; row < ROW; row++) stream << matrix[row] << std::endl;
   return stream;
 }
+
+template<typename T>
+class RectArray
+{
+public:
+  inline RectArray(uint32_t width, uint32_t height): array_(width, std::vector<T>(height)) {}
+
+  inline T& operator[](uint32_t x) { return array_[x]; }
+  inline const T& operator[](uint32_t x) const { return array_[x]; }
+
+private:
+  std::vector<std::vector<T>> array_;
+};
 }
 
 //------------------------------------------------------- render -------------------------------------------------------
@@ -609,8 +624,8 @@ public:
           decimal rhw = a * vertices[0].rhw + b * vertices[1].rhw + c * vertices[2].rhw;
           decimal w = 1.0 / rhw;
           a = vertices[0].rhw * a * w;
-          b = vertices[0].rhw * b * w;
-          c = vertices[0].rhw * c * w;
+          b = vertices[1].rhw * b * w;
+          c = vertices[2].rhw * c * w;
           Vector4D color = a * vertices[0].color + b * vertices[1].color + c * vertices[2].color;
           fragment.color = {color.r, color.g, color.b};
           shader_->fragment_shader(fragment);
