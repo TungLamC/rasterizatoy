@@ -1,7 +1,7 @@
 #ifndef RASTERIZATOY_CAMERA_CPP_H
 #define RASTERIZATOY_CAMERA_CPP_H
 
-#include "../rasterizatoy.hpp"
+#include "../rasterizatoy1.hpp"
 
 using namespace rasterizatoy;
 
