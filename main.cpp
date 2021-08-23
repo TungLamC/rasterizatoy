@@ -3,18 +3,24 @@
 
 #include "rasterizatoy.hpp"
 
+using namespace std;
 using namespace rasterizatoy;
 
 typedef uintptr_t gsize;
 
-int main() {
-	Matrix4D matrix {
-		1, 2, 3, 4,
-		1, 5, 3, 4,
-		1, 2, 7, 4,
-		1, 2, 3, 4,
-	};
-	std::cout << matrix << std::endl;
-	return 0;
+Matrix4D fuck()
+{
+  return {
+    1, 2, 3, 4,
+    5, 6, 7, 8,
+    5, 6, 7, 8,
+    5, 6, 7, 8,
+  };
+}
+
+int main()
+{
+  cout << fuck();
+  return 0;
 }
 
