@@ -1,6 +1,8 @@
 #ifndef RASTERIZATOY_HPP
 #define RASTERIZATOY_HPP
 
+#include "cimg.h"
+
 #include <any>
 #include <vector>
 #include <cassert>
@@ -30,6 +32,8 @@ using Vector4D = Vector<4, decimal>;
 using Matrix2D = Matrix<2, 2, decimal>;
 using Matrix3D = Matrix<3, 3, decimal>;
 using Matrix4D = Matrix<4, 4, decimal>;
+
+using namespace cimg_library;
 }
 
 //-------------------------------------------------------- math --------------------------------------------------------
@@ -390,6 +394,74 @@ struct Primitive
   Attributes attributes[3];
 };
 
+class Window
+{
+public:
+  friend class rasterizater;
+
+  inline Window(uint32_t width, uint32_t height, const char* title = "rasterizatoy")
+  : bitmap_(width, height, 1, 3, 0), display_(bitmap_, title) { }
+
+  void swap_buffer() { bitmap_.display(display_); }
+
+  inline void close() { display_.close(); }
+  inline uint32_t width() const { return display_.width(); }
+  inline uint32_t height() const { return display_.height(); }
+  inline bool should_close() const { return display_.is_closed(); }
+  inline void clear(const Vector3D& color) { auto rgb = to_color(color); bitmap_.fill(rgb.r, rgb.g, rgb.b); }
+
+  inline void put_pixel(uint32_t x, uint32_t y, const Vector3D& color)
+  {
+    auto rgb = to_color(color);
+    y = height() - y - 1;
+    bitmap_(x, y, 0) = rgb.r;
+    bitmap_(x, y, 1) = rgb.g;
+    bitmap_(x, y, 2) = rgb.b;
+  }
+
+  void draw_line(uint32_t x1, uint32_t y1, uint32_t x2, uint32_t y2, const Vector3D& color)
+  {
+    if (x1 == x2 && y1 == y2) { put_pixel(x1, y1, color); return; }
+    if (x1 == x2) { for (auto y = y1; y != y2; y += (y1 <= y2 ? 1 : -1)) put_pixel(x1, y, color); return; }
+    if (y1 == y2) { for (auto x = x1; x != x2; x += (x1 <= x2 ? 1 : -1)) put_pixel(x, y1, color); return; }
+
+    uint32_t x, y;
+    uint32_t rem = 0;
+    uint32_t dx = (x1 < x2)? x2 - x1 : x1 - x2;
+    uint32_t dy = (y1 < y2)? y2 - y1 : y1 - y2;
+    if (dx >= dy)
+    {
+      if (x2 < x1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+      for (x = x1, y = y1; x <= x2; x++)
+      {
+        put_pixel(x, y, color);
+        rem += dy;
+        if (rem >= dx) { rem -= dx; y += (y2 >= y1)? 1 : -1; put_pixel(x, y, color); }
+
+      }
+      put_pixel(x2, y2, color);
+    }
+    else
+    {
+      if (y2 < y1) x = x1, y = y1, x1 = x2, y1 = y2, x2 = x, y2 = y;
+      for (x = x1, y = y1; y <= y2; y++)
+      {
+        put_pixel(x, y, color);
+        rem += dx;
+        if (rem >= dy) { rem -= dy; x += (x2 >= x1)? 1 : -1; put_pixel(x, y, color); }
+      }
+      put_pixel(x2, y2, color);
+    }
+  }
+
+private:
+  CImg<uint8_t> bitmap_;
+  CImgDisplay   display_;
+};
+
+#define DEFINE_BUFFER_LAYOUT(...) using rasterizater = Rasterizater<__VA_ARGS__>
+#define LOCATION(location, tuple) std::get<location>(tuple)
+
 template<typename V, typename A>
 class Rasterizater
 {
@@ -402,6 +474,11 @@ public:
     assert(attributes.size() % 3 == 0);
     for (auto i = 0; i < attributes.size(); i += 3)
       primitives_.push_back({attributes[i + 0], attributes[i + 1], attributes[i + 2]});
+  }
+
+  static inline void set_current_context(Window* window)
+  {
+    window_ = window;
   }
 
   static inline void set_vertex_shader(std::function<Vector4D(Varyings&, const Attributes&)> shader)
@@ -455,13 +532,17 @@ public:
           decimal s = a + b + c;
           a /= s; b /= s; c /= s;
 
+          // 透视校正
           decimal rhw = a * rhw0 + b * rhw1 + c * rhw2;
           decimal w = 1.0 / rhw;
           a = rhw0 * a * w;
           b = rhw1 * a * w;
           c = rhw2 * a * w;
 
+          // 插值varyings
           Varyings varyings = interpolate_varyings(a, b, c, primitive.varyings[0], primitive.varyings[1], primitive.varyings[2]);
+
+          // 片段着色
           Vector4D color = fragment_shader_(varyings);
         }
       }
@@ -491,9 +572,10 @@ private:
   }
 
 private:
+  static inline Window* window_;
   static inline std::vector<Primitive<V, A>> primitives_;
-  static inline std::function<Vector4D(Varyings&, const Attributes&)> vertex_shader_;
   static inline std::function<Vector4D(const Varyings&)> fragment_shader_;
+  static inline std::function<Vector4D(Varyings&, const Attributes&)> vertex_shader_;
 };
 }
 
