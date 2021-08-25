@@ -404,51 +404,96 @@ public:
       primitives_.push_back({attributes[i + 0], attributes[i + 1], attributes[i + 2]});
   }
 
-  static inline void set_vertex_shader(std::function<Vector4D(const Varyings&, const Attributes&)> shader)
+  static inline void set_vertex_shader(std::function<Vector4D(Varyings&, const Attributes&)> shader)
   {
     vertex_shader_ = shader;
+  }
+
+  static inline void set_fragment_shader(std::function<Vector4D(const Varyings&)> shader)
+  {
+    fragment_shader_ = shader;
   }
 
   static inline void draw_call()
   {
     for (Primitive<V, A> primitive : primitives_)
     {
+      // 顶点着色
       Vector4D p0 = vertex_shader_(primitive.varyings[0], primitive.attributes[0]);
       Vector4D p1 = vertex_shader_(primitive.varyings[1], primitive.attributes[1]);
       Vector4D p2 = vertex_shader_(primitive.varyings[2], primitive.attributes[2]);
 
-      // 透视除法
-      p0 /= p0.w; p1 /= p1.w; p2 /= p2.w;
+      // 保存w的倒数
+      decimal rhw0 = 1 / p0.w; decimal rhw1 = 1 / p1.w; decimal rhw2 = 1 / p2.w;
 
-      // ndc -> viewport
+      // 透视除法
+      p0 *= rhw0; p1 *= rhw1; p2 *= rhw2;
+
+      // 视口变换
       Vector2D v0 = {(p0.x + 1.0) * 2 * 0.5, (p0.y + 1.0) * 2 * 0.5};
       Vector2D v1 = {(p1.x + 1.0) * 2 * 0.5, (p1.y + 1.0) * 2 * 0.5};
       Vector2D v2 = {(p2.x + 1.0) * 2 * 0.5, (p2.y + 1.0) * 2 * 0.5};
 
       // todo 面剔除
+
+      // edge equation
+      auto [min_x, min_y, max_x, max_y] = boundingbox(v0, v1, v2);
+      for (auto x = min_x; x <= max_x; x++)
+      {
+        for (auto y = min_y; y <= max_y; y++)
+        {
+          Vector2D point{x + 0.5, y + 0.5};
+          Vector2D v0p = point - v0;
+          Vector2D v1p = point - v1;
+          Vector2D v2p = point - v2;
+          decimal a = cross(v1p, v2p);
+          decimal b = cross(v2p, v0p);
+          decimal c = cross(v0p, v1p);
+
+          if (a < 0 || b < 0 || c < 0) continue;
+
+          decimal s = a + b + c;
+          a /= s; b /= s; c /= s;
+
+          decimal rhw = a * rhw0 + b * rhw1 + c * rhw2;
+          decimal w = 1.0 / rhw;
+          a = rhw0 * a * w;
+          b = rhw1 * a * w;
+          c = rhw2 * a * w;
+
+          Varyings varyings = interpolate_varyings(a, b, c, primitive.varyings[0], primitive.varyings[1], primitive.varyings[2]);
+          Vector4D color = fragment_shader_(varyings);
+        }
+      }
     }
   }
 
 private:
+  static inline std::tuple<integer, integer, integer, integer> boundingbox(const Vector2D& a, const Vector2D& b, const Vector2D& c)
+  {
+    integer min_x = std::min({numeric_cast<integer>(a.x), numeric_cast<integer>(b.x), numeric_cast<integer>(c.x)});
+    integer max_x = std::max({numeric_cast<integer>(a.x), numeric_cast<integer>(b.x), numeric_cast<integer>(c.x)});
+    integer min_y = std::min({numeric_cast<integer>(a.y), numeric_cast<integer>(b.y), numeric_cast<integer>(c.y)});
+    integer max_y = std::max({numeric_cast<integer>(a.y), numeric_cast<integer>(b.y), numeric_cast<integer>(c.y)});
+    return std::make_tuple(min_x, min_y, max_x, max_y);
+  }
+
+  static inline Varyings interpolate_varyings(decimal a, decimal b, decimal c, Varyings& v0, Varyings& v1, Varyings& v2)
+  {
+    return interpolate_varyings(a, b, c, v0, v1, v2, std::make_index_sequence<std::tuple_size_v<Varyings>>{});
+  }
+
+  template<size_t... I>
+  static inline Varyings interpolate_varyings(decimal a, decimal b, decimal c, Varyings& v0, Varyings& v1, Varyings& v2, std::index_sequence<I...>)
+  {
+    Varyings varyings{};
+    auto dummy = { (std::get<I>(varyings) = a * std::get<I>(v0) + b * std::get<I>(v1) + c * std::get<I>(v2), 0)... };
+  }
+
+private:
   static inline std::vector<Primitive<V, A>> primitives_;
-  static inline std::function<Vector4D(const Varyings&, const Attributes&)> vertex_shader_;
-//public:
-//  using VaryingsLayout   = typename V::type;
-//  using AttributesLayout = typename A::type;
-//  using Uniforms         = typename U::type;
-//  using Varyings         = std::vector<VaryingsLayout>;
-//  using Attributes       = std::vector<AttributesLayout>;
-//
-//  static inline void set_attributes(const Attributes& attributes)
-//  {
-//    assert(attributes.size() % 3 == 0);
-//    attributes_ = attributes;
-//  }
-//
-//private:
-//  static inline Uniforms   uniforms_;
-//  static inline Varyings   varyings_;
-//  static inline Attributes attributes_;
+  static inline std::function<Vector4D(Varyings&, const Attributes&)> vertex_shader_;
+  static inline std::function<Vector4D(const Varyings&)> fragment_shader_;
 };
 }
 
