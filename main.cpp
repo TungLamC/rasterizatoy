@@ -6,21 +6,20 @@
 using namespace std;
 using namespace rasterizatoy;
 
-typedef uintptr_t gsize;
-
-Matrix4D fuck()
+void fuck(std::function<void(int)> f)
 {
-  return {
-    1, 2, 3, 4,
-    5, 6, 7, 8,
-    5, 6, 7, 8,
-    5, 6, 7, 8,
-  };
+  int position = 0;
+  f(position);
 }
 
 int main()
 {
-  cout << fuck();
+//  int a = 2;
+//  std::function<void(int)> f = [&](auto b) { std::cout << a << ", " << b << std::endl; };
+//  using U = BufferLayout<integer, decimal>;
+//  using A = BufferLayout<integer, decimal>;
+//  using V = BufferLayout<integer, decimal>;
+  DEFINE_SHADER_LAYOUT(U, A, V);
   return 0;
 }
 

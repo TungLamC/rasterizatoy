@@ -1,9 +1,12 @@
 #ifndef RASTERIZATOY_HPP
 #define RASTERIZATOY_HPP
 
+#include <any>
+#include <vector>
 #include <cassert>
 #include <iostream>
 #include <algorithm>
+#include <functional>
 
 namespace rasterizatoy
 {
@@ -24,9 +27,12 @@ using Vector4I = Vector<4, integer>;
 using Vector2D = Vector<2, decimal>;
 using Vector3D = Vector<3, decimal>;
 using Vector4D = Vector<4, decimal>;
+using Matrix2D = Matrix<2, 2, decimal>;
+using Matrix3D = Matrix<3, 3, decimal>;
 using Matrix4D = Matrix<4, 4, decimal>;
 }
 
+//-------------------------------------------------------- math --------------------------------------------------------
 namespace rasterizatoy
 {
 template<typename T, typename U>
@@ -366,8 +372,84 @@ inline Matrix4D perspective(decimal fovy, decimal aspect, decimal z_near, decima
 }
 }
 
+//------------------------------------------------------- render -------------------------------------------------------
 namespace rasterizatoy
 {
+template<typename... T> struct BufferLayout { using type = std::tuple<T...>; };
+
+template<typename V, typename A>
+struct Primitive
+{
+  using Varyings =   typename V::type;
+  using Attributes = typename A::type;
+
+  inline Primitive(const Attributes& attributes0, const Attributes& attributes1, const Attributes& attributes2)
+    : varyings{}, attributes{attributes0, attributes1, attributes2} {}
+
+  Varyings   varyings[3];
+  Attributes attributes[3];
+};
+
+template<typename V, typename A>
+class Rasterizater
+{
+public:
+  using Varyings =   typename V::type;
+  using Attributes = typename A::type;
+
+  static inline void set_attributes(const std::vector<Attributes>& attributes)
+  {
+    assert(attributes.size() % 3 == 0);
+    for (auto i = 0; i < attributes.size(); i += 3)
+      primitives_.push_back({attributes[i + 0], attributes[i + 1], attributes[i + 2]});
+  }
+
+  static inline void set_vertex_shader(std::function<Vector4D(const Varyings&, const Attributes&)> shader)
+  {
+    vertex_shader_ = shader;
+  }
+
+  static inline void draw_call()
+  {
+    for (Primitive<V, A> primitive : primitives_)
+    {
+      Vector4D p0 = vertex_shader_(primitive.varyings[0], primitive.attributes[0]);
+      Vector4D p1 = vertex_shader_(primitive.varyings[1], primitive.attributes[1]);
+      Vector4D p2 = vertex_shader_(primitive.varyings[2], primitive.attributes[2]);
+
+      // 透视除法
+      p0 /= p0.w; p1 /= p1.w; p2 /= p2.w;
+
+      // ndc -> viewport
+      Vector2D v0 = {(p0.x + 1.0) * 2 * 0.5, (p0.y + 1.0) * 2 * 0.5};
+      Vector2D v1 = {(p1.x + 1.0) * 2 * 0.5, (p1.y + 1.0) * 2 * 0.5};
+      Vector2D v2 = {(p2.x + 1.0) * 2 * 0.5, (p2.y + 1.0) * 2 * 0.5};
+
+      // todo 面剔除
+    }
+  }
+
+private:
+  static inline std::vector<Primitive<V, A>> primitives_;
+  static inline std::function<Vector4D(const Varyings&, const Attributes&)> vertex_shader_;
+//public:
+//  using VaryingsLayout   = typename V::type;
+//  using AttributesLayout = typename A::type;
+//  using Uniforms         = typename U::type;
+//  using Varyings         = std::vector<VaryingsLayout>;
+//  using Attributes       = std::vector<AttributesLayout>;
+//
+//  static inline void set_attributes(const Attributes& attributes)
+//  {
+//    assert(attributes.size() % 3 == 0);
+//    attributes_ = attributes;
+//  }
+//
+//private:
+//  static inline Uniforms   uniforms_;
+//  static inline Varyings   varyings_;
+//  static inline Attributes attributes_;
+};
 }
 
 #endif //RASTERIZATOY_HPP
