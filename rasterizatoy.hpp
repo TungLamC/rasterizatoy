@@ -547,7 +547,7 @@ public:
           decimal w = 1.0 / rhw;
           a = rhw0 * a * w; b = rhw1 * b * w; c = rhw2 * c * w;
 
-          // todo 插值varying
+          // 插值varying
           Varying varying = interpolate_varying(a, b, c, varying0, varying1, varying2);
 
           // 片段着色
