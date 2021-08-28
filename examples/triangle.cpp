@@ -1,22 +1,30 @@
-#include "../rasterizatoy1.hpp"
+#include "../rasterizatoy.hpp"
 
 using namespace rasterizatoy;
 
 int main()
 {
-  Primitive primitive{
-    {{-0.5, -0.5, +0.0}, {255, 0, 0}}, {{+0.5, -0.5, +1.0}, {0, 255, 0}}, {{+0.0, +0.5, +0.0}, {0, 0, 0}}
+  struct { Vector4D pos; Vector4D color; } vs_input[3] = {
+    { { -0.5, -0.5, 0.00, 1}, {255, 0, 0, 1} },
+    { { +0.5, -0.5, 0.00, 1}, {0, 255, 0, 1} },
+    { { +0.0, +0.5, 0.00, 1}, {0, 0, 255, 1} },
   };
-
   Window window(800, 600);
-  rasterizater::set_current_context(&window);
-  rasterizater::input_primitives(std::vector<Primitive>{primitive});
-  rasterizater::set_shader(new Shader());
+  using Varying = VARYING_LAYOUT(Vector4D);
+  auto raster = Rasterizater<Varying>(&window);
+  raster.set_vertex_shader([&](uint32_t index, Varying& varying) -> Vector4D {
+    Vector4D& color = std::get<0>(varying);
+    color = vs_input[index].color;
+    return vs_input[index].pos;
+  });
+  raster.set_fragment_shader([&](const Varying& varying) -> Vector4D {
+    return std::get<0>(varying);
+  });
   while (!window.should_close())
   {
-    rasterizater::clear({0, 0, 0});
-    rasterizater::draw_call();
-    rasterizater::swap_buffer();
+    raster.clear(200, 150, 0);
+    raster.draw_call(3);
+    raster.swap_buffer();
   }
   return 0;
 }

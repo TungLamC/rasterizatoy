@@ -4,11 +4,15 @@
 #include "cimg.h"
 
 #include <any>
+#include <map>
 #include <vector>
+#include <chrono>
+#include <string>
 #include <cassert>
 #include <iostream>
 #include <algorithm>
 #include <functional>
+#include <type_traits>
 
 namespace rasterizatoy
 {
@@ -48,9 +52,9 @@ inline T numeric_cast(U source)
 }
 
 template<uint32_t N, typename T> struct VectorN { T components[N]; };
-template<typename T> struct VectorN<2, T> { union { struct { T x, y; }; }; struct { T u, v; }; T components[2]; };
-template<typename T> struct VectorN<3, T> { union { struct { T x, y, z; }; }; struct { T r, g, b; }; T components[3]; };
-template<typename T> struct VectorN<4, T> { union { struct { T x, y, z, w; }; }; struct { T r, g, b, a; }; T components[4]; };
+template<typename T> struct VectorN<2, T> { union { struct { T x, y; }; struct { T u, v; }; T components[2]; }; };
+template<typename T> struct VectorN<3, T> { union { struct { T x, y, z; }; struct { T r, g, b; }; T components[3]; }; };
+template<typename T> struct VectorN<4, T> { union { struct { T x, y, z, w; }; struct { T r, g, b, a; }; T components[4]; }; };
 
 template<uint32_t N, typename T>
 struct Vector: VectorN<N, T>
@@ -61,7 +65,7 @@ struct Vector: VectorN<N, T>
   inline Vector(U... args) { uint32_t i = 0; ((this->components[i++] = numeric_cast<T>(args)), ...); }
 
   template<typename U>
-  inline Vector(const Vector<N, U>& other) { for (auto i = 0; i < N; i++) this->components = numeric_cast<T>(other.components[i]); }
+  inline Vector(const Vector<N, U>& other) { for (auto i = 0; i < N; i++) this->components[i] = numeric_cast<T>(other.components[i]); }
 
   inline T& operator[](uint32_t index) { assert(index < N); return this->components[index]; }
   inline const T& operator[](uint32_t index) const { assert(index < N); return this->components[index]; }
@@ -71,7 +75,7 @@ struct Vector: VectorN<N, T>
   template<typename U = T>
   inline Vector<N, U> normalize() const { return Vector<N, U>{*this} / length<U>(); }
 
-  template<typename U = T>  
+  template<typename U = T>
   inline U length(bool square = false) const
   {
     U result{};
@@ -156,6 +160,12 @@ inline Vector<N, T> operator*(const Vector<N, T>& vector, T scalar)
   Vector<N, T> result{};
   for (auto i = 0; i < N; i++) result[i] = numeric_cast<T>(vector[i] * scalar);
   return result;
+}
+
+template<uint32_t N, typename T>
+inline Vector<N, T> operator*(T scalar, const Vector<N, T>& vector)
+{
+  return vector * scalar;
 }
 
 template<uint32_t N, typename T>
@@ -252,7 +262,7 @@ public:
   }
 
   inline Vector<COLUMN, T>& operator[](uint32_t row) { assert(row < ROW); return value_[row]; }
-  inline const Vector<COLUMN, T>& operator[](uint32_t row) const { assert(row < ROW); return value_[row]; } 
+  inline const Vector<COLUMN, T>& operator[](uint32_t row) const { assert(row < ROW); return value_[row]; }
 
   inline Vector<ROW, T> column_at(uint32_t column) const
   {
@@ -397,18 +407,33 @@ struct Primitive
 class Window
 {
 public:
-  friend class rasterizater;
-
   inline Window(uint32_t width, uint32_t height, const char* title = "rasterizatoy")
   : bitmap_(width, height, 1, 3, 0), display_(bitmap_, title) { }
 
-  void swap_buffer() { bitmap_.display(display_); }
+  void swap_buffer(bool fps = true) { if (fps) display_fps(); bitmap_.display(display_); }
 
   inline void close() { display_.close(); }
   inline uint32_t width() const { return display_.width(); }
   inline uint32_t height() const { return display_.height(); }
   inline bool should_close() const { return display_.is_closed(); }
-  inline void clear(const Vector3D& color) { auto rgb = to_color(color); bitmap_.fill(rgb.r, rgb.g, rgb.b); }
+
+  inline void clear(const Vector3D& color)
+  {
+    auto rgb = to_color(color);
+    cimg_forXY(bitmap_, x, y) { bitmap_(x, y, 0) = rgb.r; bitmap_(x, y, 1) = rgb.g; bitmap_(x, y, 2) = rgb.b; }
+  }
+
+  inline void display_fps()
+  {
+    static auto last = std::chrono::system_clock::now();
+    auto now = std::chrono::system_clock::now();
+    auto fps = 1000000 / (decimal)(std::chrono::duration_cast<std::chrono::microseconds>(now - last).count());
+    const decimal foreground[] = {0 , 200, 255};
+    const decimal background[] = {0, 0, 0};
+    bitmap_.draw_text(0, 0, std::to_string(fps).c_str(), foreground, background, 1, 24);
+    last = now;
+  }
+
 
   inline void put_pixel(uint32_t x, uint32_t y, const Vector3D& color)
   {
@@ -459,123 +484,105 @@ private:
   CImgDisplay   display_;
 };
 
-#define DEFINE_BUFFER_LAYOUT(...) using rasterizater = Rasterizater<__VA_ARGS__>
-#define LOCATION(location, tuple) std::get<location>(tuple)
+#define VARYING_LAYOUT(...) std::tuple<__VA_ARGS__>
 
-template<typename V, typename A>
+template<typename Varying>
 class Rasterizater
 {
 public:
-  using Varyings =   typename V::type;
-  using Attributes = typename A::type;
+  using VertexShader = std::function<Vector4D(uint32_t index, Varying& varying)>;
+  using FragmentShader = std::function<Vector4D (const Varying&)>;
 
-  static inline void set_attributes(const std::vector<Attributes>& attributes)
-  {
-    assert(attributes.size() % 3 == 0);
-    for (auto i = 0; i < attributes.size(); i += 3)
-      primitives_.push_back({attributes[i + 0], attributes[i + 1], attributes[i + 2]});
-  }
+  inline Rasterizater(Window* window): window_(window), vertex_shader_(nullptr), fragment_shader_(nullptr) {}
 
-  static inline void set_current_context(Window* window)
-  {
-    window_ = window;
-  }
+  inline void set_vertex_shader(const VertexShader& shader) { vertex_shader_ = shader; }
+  inline void set_fragment_shader(const FragmentShader& shader) { fragment_shader_ = shader; }
 
-  static inline void set_vertex_shader(std::function<Vector4D(Varyings&, const Attributes&)> shader)
-  {
-    vertex_shader_ = shader;
-  }
+  inline void clear(const Vector3D& color) { window_->clear(color); }
+  inline void clear(decimal r, decimal g, decimal b) { window_->clear({r, g, b}); }
 
-  static inline void set_fragment_shader(std::function<Vector4D(const Varyings&)> shader)
-  {
-    fragment_shader_ = shader;
-  }
+  inline void swap_buffer(bool fps = true) { window_->swap_buffer(fps); }
 
-  static inline void draw_call()
+  inline void draw_call(uint32_t vertices_count)
   {
-    for (Primitive<V, A> primitive : primitives_)
+    assert(vertices_count % 3 == 0);
+    for (auto i =0; i < vertices_count; i += 3)
     {
       // 顶点着色
-      Vector4D p0 = vertex_shader_(primitive.varyings[0], primitive.attributes[0]);
-      Vector4D p1 = vertex_shader_(primitive.varyings[1], primitive.attributes[1]);
-      Vector4D p2 = vertex_shader_(primitive.varyings[2], primitive.attributes[2]);
+      Varying varying0{}; Vector4D position0 = vertex_shader_(i + 0, varying0);
+      Varying varying1{}; Vector4D position1 = vertex_shader_(i + 1, varying1);
+      Varying varying2{}; Vector4D position2 = vertex_shader_(i + 2, varying2);
 
-      // 保存w的倒数
-      decimal rhw0 = 1 / p0.w; decimal rhw1 = 1 / p1.w; decimal rhw2 = 1 / p2.w;
+      // todo 裁剪
 
-      // 透视除法
-      p0 *= rhw0; p1 *= rhw1; p2 *= rhw2;
+      // 计算w的倒数
+      decimal rhw0 = 1 / position0.w; decimal rhw1 = 1 / position1.w; decimal rhw2 = 1 / position2.w;
 
-      // 视口变换
-      Vector2D v0 = {(p0.x + 1.0) * 2 * 0.5, (p0.y + 1.0) * 2 * 0.5};
-      Vector2D v1 = {(p1.x + 1.0) * 2 * 0.5, (p1.y + 1.0) * 2 * 0.5};
-      Vector2D v2 = {(p2.x + 1.0) * 2 * 0.5, (p2.y + 1.0) * 2 * 0.5};
+      // 计算视口坐标
+      Vector2D viewport0 = {(position0.x + 1.0) * window_->width() * 0.5, (position0.y + 1.0) * window_->height() * 0.5};
+      Vector2D viewport1 = {(position1.x + 1.0) * window_->width() * 0.5, (position1.y + 1.0) * window_->height() * 0.5};
+      Vector2D viewport2 = {(position2.x + 1.0) * window_->width() * 0.5, (position2.y + 1.0) * window_->height() * 0.5};
 
-      // todo 面剔除
+      // todo 面裁剪
 
       // edge equation
-      auto [min_x, min_y, max_x, max_y] = boundingbox(v0, v1, v2);
+      auto [min_x, min_y, max_x, max_y] = bounding_box(viewport0, viewport1, viewport2);
       for (auto x = min_x; x <= max_x; x++)
       {
         for (auto y = min_y; y <= max_y; y++)
         {
-          Vector2D point{x + 0.5, y + 0.5};
-          Vector2D v0p = point - v0;
-          Vector2D v1p = point - v1;
-          Vector2D v2p = point - v2;
-          decimal a = cross(v1p, v2p);
-          decimal b = cross(v2p, v0p);
-          decimal c = cross(v0p, v1p);
-
+          Vector2D viewport{x + 0.5, y + 0.5};
+          Vector2D v_to_0 = viewport - viewport0;
+          Vector2D v_to_1 = viewport - viewport1;
+          Vector2D v_to_2 = viewport - viewport2;
+          decimal a = cross(v_to_1, v_to_2);
+          decimal b = cross(v_to_2, v_to_0);
+          decimal c = cross(v_to_0, v_to_1);
           if (a < 0 || b < 0 || c < 0) continue;
-
-          decimal s = a + b + c;
-          a /= s; b /= s; c /= s;
+          decimal total = a + b + c;
+          a /= total; b /= total; c /= total;
 
           // 透视校正
           decimal rhw = a * rhw0 + b * rhw1 + c * rhw2;
           decimal w = 1.0 / rhw;
-          a = rhw0 * a * w;
-          b = rhw1 * a * w;
-          c = rhw2 * a * w;
+          a = rhw0 * a * w; b = rhw1 * b * w; c = rhw2 * c * w;
 
-          // 插值varyings
-          Varyings varyings = interpolate_varyings(a, b, c, primitive.varyings[0], primitive.varyings[1], primitive.varyings[2]);
+          // todo 插值varying
+          Varying varying = interpolate_varying(a, b, c, varying0, varying1, varying2);
 
           // 片段着色
-          Vector4D color = fragment_shader_(varyings);
+          Vector4D color = fragment_shader_(varying);
+
+          window_->put_pixel(x, y, {color.r, color.g, color.b});
         }
       }
     }
   }
 
 private:
-  static inline std::tuple<integer, integer, integer, integer> boundingbox(const Vector2D& a, const Vector2D& b, const Vector2D& c)
+  inline static std::tuple<integer, integer, integer, integer> bounding_box(Vector2I v0, Vector2I v1, Vector2I v2)
   {
-    integer min_x = std::min({numeric_cast<integer>(a.x), numeric_cast<integer>(b.x), numeric_cast<integer>(c.x)});
-    integer max_x = std::max({numeric_cast<integer>(a.x), numeric_cast<integer>(b.x), numeric_cast<integer>(c.x)});
-    integer min_y = std::min({numeric_cast<integer>(a.y), numeric_cast<integer>(b.y), numeric_cast<integer>(c.y)});
-    integer max_y = std::max({numeric_cast<integer>(a.y), numeric_cast<integer>(b.y), numeric_cast<integer>(c.y)});
+    integer min_x = std::min({v0.x, v1.x, v2.x}); integer min_y = std::min({v0.y, v1.y, v2.y});
+    integer max_x = std::max({v0.x, v1.x, v2.x}); integer max_y = std::max({v0.y, v1.y, v2.y});
     return std::make_tuple(min_x, min_y, max_x, max_y);
   }
 
-  static inline Varyings interpolate_varyings(decimal a, decimal b, decimal c, Varyings& v0, Varyings& v1, Varyings& v2)
+  inline static Varying interpolate_varying(decimal a, decimal b, decimal c, Varying v0, Varying v1, Varying v2)
   {
-    return interpolate_varyings(a, b, c, v0, v1, v2, std::make_index_sequence<std::tuple_size_v<Varyings>>{});
+    return interpolate_varying(a, b, c, v0, v1, v2, std::make_integer_sequence<uint32_t, std::tuple_size_v<Varying>>{});
   }
 
-  template<size_t... I>
-  static inline Varyings interpolate_varyings(decimal a, decimal b, decimal c, Varyings& v0, Varyings& v1, Varyings& v2, std::index_sequence<I...>)
+  template<uint32_t... I>
+  inline static Varying interpolate_varying(decimal a, decimal b, decimal c, Varying v0, Varying v1, Varying v2, std::integer_sequence<uint32_t, I...>)
   {
-    Varyings varyings{};
-    auto dummy = { (std::get<I>(varyings) = a * std::get<I>(v0) + b * std::get<I>(v1) + c * std::get<I>(v2), 0)... };
+    Varying varying{};
+    ((std::get<I>(varying) = a * std::get<I>(v0) + b * std::get<I>(v1) + c * std::get<I>(v2)), ...);
+    return varying;
   }
 
-private:
-  static inline Window* window_;
-  static inline std::vector<Primitive<V, A>> primitives_;
-  static inline std::function<Vector4D(const Varyings&)> fragment_shader_;
-  static inline std::function<Vector4D(Varyings&, const Attributes&)> vertex_shader_;
+  Window* window_;
+  VertexShader vertex_shader_;
+  FragmentShader fragment_shader_;
 };
 }
 
