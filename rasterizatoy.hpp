@@ -518,7 +518,7 @@ public:
       // 计算w的倒数
       decimal rhw0 = 1 / position0.w; decimal rhw1 = 1 / position1.w; decimal rhw2 = 1 / position2.w;
 
-      // clip space -> ndc space
+      // 透视除法 clip space -> ndc space
       position0 *= rhw0; position1 *= rhw1; position2 *= rhw2;
 
       // 计算视口坐标
