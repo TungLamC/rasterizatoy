@@ -70,7 +70,7 @@ struct Vector: VectorN<N, T>
   inline T& operator[](uint32_t index) { assert(index < N); return this->components[index]; }
   inline const T& operator[](uint32_t index) const { assert(index < N); return this->components[index]; }
 
-  inline Vector<N, T> normalize(std::in_place_t) { return *this / length(); }
+  inline Vector<N, T> normalize(std::in_place_t) { return *this /= length(); }
 
   template<typename U = T>
   inline Vector<N, U> normalize() const { return Vector<N, U>{*this} / length<U>(); }
@@ -330,14 +330,14 @@ inline Matrix<ROW, COLUMN, T> operator-(const Matrix<ROW, COLUMN, T>& lhs, const
   return lhs + (-rhs);
 }
 
-template<uint32_t ROW, uint32_t LHS_COLUMN, size_t RHS_COLUMN, typename T>
+template<uint32_t ROW, uint32_t LHS_COLUMN, uint32_t RHS_COLUMN, typename T>
 inline Matrix<ROW, RHS_COLUMN, T> operator*(const Matrix<ROW, LHS_COLUMN, T>& lhs, const Matrix<LHS_COLUMN, RHS_COLUMN, T>& rhs)
 {
   Matrix<ROW, RHS_COLUMN, T> result;
   for (auto row = 0; row < ROW; row++)
-    for (size_t column = 0; column < RHS_COLUMN; column++)
+    for (auto column = 0; column < RHS_COLUMN; column++)
       result[row][column] = dot(lhs[row], rhs.column_at(column));
-    return result;
+  return result;
 }
 
 template<uint32_t ROW, uint32_t COLUMN, typename T>
@@ -508,7 +508,7 @@ public:
     assert(vertices_count % 3 == 0);
     for (auto i =0; i < vertices_count; i += 3)
     {
-      // 顶点着色
+      // 顶点着色 local space -> clip space
       Varying varying0{}; Vector4D position0 = vertex_shader_(i + 0, varying0);
       Varying varying1{}; Vector4D position1 = vertex_shader_(i + 1, varying1);
       Varying varying2{}; Vector4D position2 = vertex_shader_(i + 2, varying2);
@@ -518,12 +518,15 @@ public:
       // 计算w的倒数
       decimal rhw0 = 1 / position0.w; decimal rhw1 = 1 / position1.w; decimal rhw2 = 1 / position2.w;
 
+      // clip space -> ndc space
+      position0 *= rhw0; position1 *= rhw1; position2 *= rhw2;
+
       // 计算视口坐标
       Vector2D viewport0 = {(position0.x + 1.0) * window_->width() * 0.5, (position0.y + 1.0) * window_->height() * 0.5};
       Vector2D viewport1 = {(position1.x + 1.0) * window_->width() * 0.5, (position1.y + 1.0) * window_->height() * 0.5};
       Vector2D viewport2 = {(position2.x + 1.0) * window_->width() * 0.5, (position2.y + 1.0) * window_->height() * 0.5};
 
-      // todo 面裁剪
+      // todo 面剔除
 
       // edge equation
       auto [min_x, min_y, max_x, max_y] = bounding_box(viewport0, viewport1, viewport2);

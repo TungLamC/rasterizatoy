@@ -4,6 +4,8 @@ using namespace rasterizatoy;
 
 struct Vertex { Vector4D position; Vector4D color; };
 
+inline static float tick = 0;
+
 int main()
 {
   std::vector<Vertex> vertices {
@@ -15,17 +17,23 @@ int main()
   using Varying = VARYING_LAYOUT(Vector4D);
   auto raster = Rasterizater<Varying>(&window);
   raster.set_vertex_shader([&](uint32_t index, Varying& varying) -> Vector4D {
+    decimal radius = 5;
+    decimal x = std::sin(radians(tick)) * radius;
+    decimal z = std::cos(radians(tick)) * radius;
+    Matrix4D view = look_at({x, 2, z}, {0, 0, 0}, {0, 1, 0});
+    Matrix4D projection = perspective(radians(45.f), (float)800 / (float)600, 10, 100);
+
     Vector4D& color = std::get<0>(varying);
     color = vertices[index].color;
-    return vertices[index].position;
+    return projection * view * vertices[index].position;
   });
   raster.set_fragment_shader([&](const Varying& varying) -> Vector4D {
-//    return std::get<0>(varying);
-    return {255, 0, 0, 0};
+    return std::get<0>(varying);
   });
   while (!window.should_close())
   {
-    raster.clear(200, 150, 0);
+    ++tick;
+    raster.clear(0, 255, 0);
     raster.draw_call(3);
     raster.swap_buffer();
   }
