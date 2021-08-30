@@ -2,6 +2,8 @@
 
 using namespace rasterizatoy;
 
+static inline decimal tick = 0;
+
 class Texture: public RectArray<Vector4D>
 {
 public:
@@ -44,9 +46,14 @@ int main()
   using Varying = VARYING_LAYOUT(Vector2D);
   auto rasterizater = Rasterizater<Varying>(&window);
   rasterizater.set_vertex_shader([&](uint32_t index, Varying& varying) {
+    decimal radius = 5;
+    decimal x = std::sin(radians(tick)) * radius;
+    decimal z = std::cos(radians(tick)) * radius;
+    Matrix4D view = look_at({x, 2, z}, {0, 0, 0}, {0, 1, 0});
+    Matrix4D projection = perspective(radians(45.f), (float)800 / (float)600, 10, 100);
     Vector2D& textcoords = LOCATION(0, varying);
     textcoords = vertices[index].texcoord;
-    return vertices[index].position;
+    return projection * view * vertices[index].position;
   });
   rasterizater.set_fragment_shader([&](const Varying& varying) {
     const Vector2D& textcoords = LOCATION(0, varying);
@@ -55,6 +62,7 @@ int main()
   });
   while (!window.should_close())
   {
+    ++tick;
     rasterizater.clear(0, 0, 0);
     rasterizater.draw_call(6);
     rasterizater.swap_buffer();
