@@ -502,6 +502,8 @@ private:
   CImgDisplay   display_;
 };
 
+enum class Facing { None, Back, Front };
+
 #define VARYING_LAYOUT(...) std::tuple<__VA_ARGS__>
 #define LOCATION(location, varying) std::get<location>(varying)
 
@@ -548,7 +550,11 @@ public:
       // todo 面剔除
 
       // edge equation
+//      if (facing_of(viewport0, viewport1, viewport2) == Facing::Back)
+//        std::swap(viewport1, viewport2);
+
       auto [min_x, min_y, max_x, max_y] = bounding_box(viewport0, viewport1, viewport2);
+      Vector2I cursor(min_x, min_y);
       for (auto x = min_x; x <= max_x; x++)
       {
         for (auto y = min_y; y <= max_y; y++)
@@ -582,6 +588,11 @@ public:
   }
 
 private:
+  inline static Facing facing_of(const Vector2D& v0, const Vector2D& v1, const Vector2D& v2)
+  {
+    return cross(v1 - v0, v2 - v0) < 0 ? Facing::Back : Facing::Front;
+  }
+
   inline static std::tuple<integer, integer, integer, integer> bounding_box(Vector2I v0, Vector2I v1, Vector2I v2)
   {
     integer min_x = std::min({v0.x, v1.x, v2.x}); integer min_y = std::min({v0.y, v1.y, v2.y});
