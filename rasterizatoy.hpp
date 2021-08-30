@@ -563,7 +563,7 @@ public:
       if (facing == std::get<0>(polygon_mode_) && std::get<1>(polygon_mode_) == DrawMode::Cull) continue;
 
       // edge equation
-      if (facing_of(viewport0, viewport1, viewport2) == Facing::Back)
+      if (facing == Facing::Back)
         std::swap(viewport1, viewport2);
 
       auto [min_x, min_y, max_x, max_y] = bounding_box(viewport0, viewport1, viewport2);
