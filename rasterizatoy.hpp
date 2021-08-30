@@ -43,6 +43,14 @@ using namespace cimg_library;
 //-------------------------------------------------------- math --------------------------------------------------------
 namespace rasterizatoy
 {
+template<typename T>
+inline int numeric_sign(T number)
+{
+  if (number < 0) return -1;
+  if (number > 0) return +1;
+  return 0;
+}
+
 template<typename T, typename U>
 inline T numeric_cast(U source)
 {
@@ -550,8 +558,8 @@ public:
       // todo 面剔除
 
       // edge equation
-//      if (facing_of(viewport0, viewport1, viewport2) == Facing::Back)
-//        std::swap(viewport1, viewport2);
+      if (facing_of(viewport0, viewport1, viewport2) == Facing::Back)
+        std::swap(viewport1, viewport2);
 
       auto [min_x, min_y, max_x, max_y] = bounding_box(viewport0, viewport1, viewport2);
       Vector2I cursor(min_x, min_y);
