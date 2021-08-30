@@ -510,7 +510,8 @@ private:
   CImgDisplay   display_;
 };
 
-enum class Facing { None, Back, Front };
+enum class Facing { All, Back, Front };
+enum class DrawMode { Cull, Fill, Wireframe };
 
 #define VARYING_LAYOUT(...) std::tuple<__VA_ARGS__>
 #define LOCATION(location, varying) std::get<location>(varying)
@@ -520,7 +521,7 @@ class Rasterizater
 {
 public:
   using VertexShader = std::function<Vector4D(uint32_t index, Varying& varying)>;
-  using FragmentShader = std::function<Vector4D (const Varying&)>;
+  using FragmentShader = std::function<Vector4D(const Varying&)>;
 
   inline Rasterizater(Window* window): window_(window), vertex_shader_(nullptr), fragment_shader_(nullptr) {}
 
@@ -531,6 +532,8 @@ public:
   inline void clear(decimal r, decimal g, decimal b) { window_->clear({r, g, b}); }
 
   inline void swap_buffer(bool fps = true) { window_->swap_buffer(fps); }
+
+  inline void set_polygon_mode(Facing facing, DrawMode draw_mode) { polygon_mode_ = {facing, draw_mode}; }
 
   inline void draw_call(uint32_t vertices_count)
   {
@@ -555,7 +558,9 @@ public:
       Vector2D viewport1 = {(position1.x + 1.0) * window_->width() * 0.5, (position1.y + 1.0) * window_->height() * 0.5};
       Vector2D viewport2 = {(position2.x + 1.0) * window_->width() * 0.5, (position2.y + 1.0) * window_->height() * 0.5};
 
-      // todo 面剔除
+      // 面剔除
+      Facing facing = facing_of(viewport0, viewport1, viewport2);
+      if (facing == std::get<0>(polygon_mode_) && std::get<1>(polygon_mode_) == DrawMode::Cull) continue;
 
       // edge equation
       if (facing_of(viewport0, viewport1, viewport2) == Facing::Back)
@@ -624,6 +629,8 @@ private:
   Window* window_;
   VertexShader vertex_shader_;
   FragmentShader fragment_shader_;
+
+  std::tuple<Facing, DrawMode> polygon_mode_;
 };
 }
 

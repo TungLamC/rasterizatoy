@@ -45,6 +45,7 @@ int main()
   Window window(800, 600);
   using Varying = VARYING_LAYOUT(Vector2D);
   auto rasterizater = Rasterizater<Varying>(&window);
+  rasterizater.set_polygon_mode(Facing::Back, DrawMode::Cull);
   rasterizater.set_vertex_shader([&](uint32_t index, Varying& varying) {
     decimal radius = 5;
     decimal x = std::sin(radians(tick)) * radius;
