@@ -65,7 +65,7 @@ int main()
     return projection * view * vertices[index].position;
   });
   rasterizater.set_fragment_shader([&](const Varying& varying) {
-    return std::get<0>(varying);
+    return LOCATION(0, varying);
   });
   while (!window.should_close())
   {

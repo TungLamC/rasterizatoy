@@ -51,6 +51,24 @@ inline T numeric_cast(U source)
   return static_cast<T>(source);
 }
 
+template<typename T>
+class RectArray
+{
+public:
+  inline RectArray(uint32_t width, uint32_t height): width_(width), height_(height), value_(width, std::vector<T>(height)) {}
+
+  inline uint32_t width() const { return width_; }
+  inline uint32_t height() const { return height_; }
+
+  inline std::vector<T>& operator[](uint32_t x) { return value_[x]; }
+  inline const std::vector<T>& operator[](uint32_t x) const { return value_[x]; }
+
+protected:
+  uint32_t width_;
+  uint32_t height_;
+  std::vector<std::vector<T>> value_;
+};
+
 template<uint32_t N, typename T> struct VectorN { T components[N]; };
 template<typename T> struct VectorN<2, T> { union { struct { T x, y; }; struct { T u, v; }; T components[2]; }; };
 template<typename T> struct VectorN<3, T> { union { struct { T x, y, z; }; struct { T r, g, b; }; T components[3]; }; };
@@ -485,6 +503,7 @@ private:
 };
 
 #define VARYING_LAYOUT(...) std::tuple<__VA_ARGS__>
+#define LOCATION(location, varying) std::get<location>(varying)
 
 template<typename Varying>
 class Rasterizater

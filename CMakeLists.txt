@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
 project(rasterizatoy)
 set(CMAKE_CXX_STANDARD 17)
-add_executable(triangle examples/triangle.cpp)
 add_executable(camera examples/camera.cpp)
+add_executable(texture examples/texture.cpp)
+add_executable(triangle examples/triangle.cpp)
